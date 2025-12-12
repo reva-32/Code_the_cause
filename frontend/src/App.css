@@ -1,0 +1,167 @@
+/* RESET */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Poppins", sans-serif;
+}
+
+body {
+  background: #f5f7fa;
+}
+
+/* APP CONTAINER */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* -------------------------
+      TOPBAR
+---------------------------- */
+.topbar {
+  height: 60px;
+  background: #4a68ff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  color: white;
+}
+
+.logo {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.menu-btn {
+  display: none;
+  cursor: pointer;
+  font-size: 22px;
+}
+
+/* -------------------------
+      MAIN CONTENT
+---------------------------- */
+.main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* SIDEBAR */
+.sidebar {
+  width: 240px;
+  background: white;
+  border-right: 1px solid #ddd;
+  padding-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 0.3s ease-in-out;
+}
+
+.side-link {
+  padding: 12px 20px;
+  font-size: 15px;
+  text-decoration: none;
+  color: #333;
+  border-left: 3px solid transparent;
+  transition: 0.2s;
+}
+
+.side-link:hover {
+  background: #eef2ff;
+  border-left: 3px solid #4a68ff;
+}
+
+/* CONTENT AREA */
+.content {
+  flex: 1;
+  padding: 25px;
+  overflow-y: auto;
+}
+
+/* SIMPLE CARD */
+.card {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 9px rgba(0, 0, 0, 0.06);
+  margin-bottom: 15px;
+}
+
+/* -----------------------------------
+      TABLET VIEW (768px - 1024px)
+------------------------------------ */
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 200px;
+  }
+
+  .side-link {
+    font-size: 14px;
+    padding: 10px 16px;
+  }
+
+  .content {
+    padding: 18px;
+  }
+}
+
+/* -----------------------------------
+      MOBILE VIEW (below 768px)
+------------------------------------ */
+@media (max-width: 768px) {
+
+  /* Show menu icon */
+  .menu-btn {
+    display: block;
+    color: white;
+  }
+
+  /* Sidebar becomes overlay */
+  .sidebar {
+    position: fixed;
+    height: 100%;
+    width: 220px;
+    left: -240px;
+    top: 60px;
+    background: white;
+    z-index: 10;
+    padding-top: 20px;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.15);
+  }
+
+  /* Sidebar visible when 'active' class added */
+  .sidebar.active {
+    left: 0;
+  }
+
+  /* Content adjusts */
+  .content {
+    padding: 15px;
+  }
+}
+
+/* -----------------------------------
+      SMALL MOBILE VIEW (below 480px)
+------------------------------------ */
+@media (max-width: 480px) {
+  .logo {
+    font-size: 18px;
+  }
+
+  .content {
+    padding: 12px;
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  .side-link {
+    font-size: 14px;
+  }
+}
