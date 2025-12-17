@@ -1,0 +1,86 @@
+/* ===== Auth Pages Common Style ===== */
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "Segoe UI", Arial, sans-serif;
+  background-color: #e6f4ea; /* pastel green */
+}
+
+/* Center container */
+.auth-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Card */
+.auth-card {
+  background-color: #ffffff;
+  padding: 32px 28px;
+  width: 100%;
+  max-width: 360px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* Title */
+.auth-card h2 {
+  margin-bottom: 20px;
+  text-align: center;
+  color: #1b4332;
+}
+
+/* Inputs */
+.auth-card input {
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  border: 1px solid #b7dfc8;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+}
+
+.auth-card input:focus {
+  border-color: #74c69d;
+}
+
+/* Button */
+.auth-card button {
+  width: 100%;
+  padding: 10px;
+  background-color: #74c69d;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  color: #1b4332;
+  transition: background-color 0.3s ease;
+}
+
+.auth-card button:hover {
+  background-color: #52b788;
+}
+
+/* Links */
+.auth-card a {
+  display: block;
+  text-align: center;
+  margin-top: 12px;
+  text-decoration: none;
+  color: #40916c;
+  font-size: 14px;
+}
+
+.auth-card a:hover {
+  text-decoration: underline;
+}
+
+/* Disabled input (student password) */
+.auth-card input:disabled {
+  background-color: #f1f5f3;
+  color: #6c757d;
+}

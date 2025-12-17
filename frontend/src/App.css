@@ -1,0 +1,354 @@
+/* =========================
+        RESET
+========================= */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Poppins", sans-serif;
+}
+
+body {
+  background: #f0fdf4;
+  color: #1b4332;
+}
+
+/* =========================
+      APP CONTAINER
+========================= */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* =========================
+          TOPBAR
+========================= */
+.topbar {
+  height: 60px;
+  background: #74c69d;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  color: #1b4332;
+}
+
+.logo {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.menu-btn {
+  display: none;
+  cursor: pointer;
+  font-size: 22px;
+}
+
+/* =========================
+        MAIN LAYOUT
+========================= */
+.main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* =========================
+          SIDEBAR
+========================= */
+.sidebar {
+  width: 240px;
+  background: #ffffff;
+  border-right: 1px solid #d8f3dc;
+  padding-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.3s ease-in-out;
+}
+
+.side-link {
+  padding: 12px 20px;
+  font-size: 15px;
+  text-decoration: none;
+  color: #1b4332;
+  border-left: 3px solid transparent;
+  transition: 0.2s;
+}
+
+.side-link:hover {
+  background: #e6f4ea;
+  border-left: 3px solid #74c69d;
+}
+
+/* =========================
+        CONTENT AREA
+========================= */
+.content {
+  flex: 1;
+  padding: 25px;
+  overflow-y: auto;
+}
+
+/* =========================
+          CARDS
+========================= */
+.card {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+  margin-bottom: 20px;
+}
+
+.card h3 {
+  margin-bottom: 12px;
+  color: #2d6a4f;
+}
+
+.card p {
+  margin-bottom: 6px;
+  color: #555;
+}
+
+/* =========================
+        FORMS
+========================= */
+input,
+select {
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  border: 1px solid #d8f3dc;
+  outline: none;
+  font-size: 14px;
+}
+
+input:focus,
+select:focus {
+  border-color: #74c69d;
+}
+
+/* =========================
+        BUTTONS
+========================= */
+button {
+  background: #74c69d;
+  border: none;
+  color: #1b4332;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: 0.2s;
+}
+
+button:hover {
+  background: #52b788;
+}
+
+/* =========================
+        AUTH PAGES
+========================= */
+.auth-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #d8f3dc, #b7e4c7);
+}
+
+.auth-box {
+  background: #ffffff;
+  padding: 30px;
+  width: 360px;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+.auth-box h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #2d6a4f;
+}
+
+.auth-box button {
+  width: 100%;
+}
+
+/* =========================
+      TABLET VIEW
+========================= */
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 200px;
+  }
+
+  .side-link {
+    font-size: 14px;
+    padding: 10px 16px;
+  }
+
+  .content {
+    padding: 18px;
+  }
+}
+
+/* =========================
+      MOBILE VIEW
+========================= */
+@media (max-width: 768px) {
+  .menu-btn {
+    display: block;
+  }
+
+  .sidebar {
+    position: fixed;
+    height: 100%;
+    width: 220px;
+    left: -240px;
+    top: 60px;
+    background: white;
+    z-index: 10;
+    padding-top: 20px;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.15);
+  }
+
+  .sidebar.active {
+    left: 0;
+  }
+
+  .content {
+    padding: 15px;
+  }
+}
+
+/* =========================
+    SMALL MOBILE VIEW
+========================= */
+@media (max-width: 480px) {
+  .logo {
+    font-size: 18px;
+  }
+
+  .content {
+    padding: 12px;
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  .side-link {
+    font-size: 14px;
+  }
+}
+/* ===== LANDING LAYOUT ===== */
+.landing {
+  background: #f6fbf8;
+  color: #243a2f;
+}
+
+/* ===== HERO ===== */
+.hero {
+  min-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 0 20px;
+}
+
+.brand {
+  font-size: 56px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: #2f855a;
+}
+
+.hero-text {
+  font-size: 18px;
+  max-width: 600px;
+  margin-bottom: 40px;
+  line-height: 1.6;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* ===== BUTTONS ===== */
+.btn {
+  padding: 12px 22px;
+  border-radius: 10px;
+  font-size: 15px;
+  cursor: pointer;
+  border: none;
+}
+
+.primary {
+  background: #68c29b;
+  color: white;
+}
+
+.outline {
+  background: transparent;
+  border: 2px solid #68c29b;
+  color: #2f855a;
+}
+
+/* ===== SECTIONS ===== */
+.section {
+  padding: 80px 8%;
+}
+
+.soft-bg {
+  background: #eef7f1;
+}
+
+.section-title {
+  text-align: center;
+  font-size: 28px;
+  margin-bottom: 50px;
+}
+
+/* ===== CARDS ===== */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 30px;
+}
+
+.info-card,
+.review-card {
+  background: white;
+  padding: 28px;
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+}
+
+.info-card h3 {
+  margin-bottom: 12px;
+}
+
+.review-card span {
+  display: block;
+  margin-top: 14px;
+  font-size: 14px;
+  color: #555;
+}
+
+/* ===== FOOTER ===== */
+.footer {
+  padding: 30px;
+  text-align: center;
+  background: #e6f4ec;
+  font-size: 14px;
+}
