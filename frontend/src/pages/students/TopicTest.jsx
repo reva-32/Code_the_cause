@@ -1,91 +1,64 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { applyPromotion } from "../../data/promotionRules";
-
-const TESTS = {
-  "maths-1-1": {
-    subject: "maths",
-    questions: [
-      { q: "2 + 3 = ?", options: ["4", "5", "6"], answer: "5" },
-      { q: "5 + 5 = ?", options: ["8", "9", "10"], answer: "10" },
-    ],
-  },
-};
+import { BASELINE_TEST } from "../../data/baselineTests";
 
 export default function TopicTest() {
-  const { lessonId } = useParams();
-  const navigate = useNavigate();
-  const test = TESTS[lessonId];
+  const [selectedTopic, setSelectedTopic] = useState(""); // Topic selected by user
+  const [questions, setQuestions] = useState([]);
 
-  const student = JSON.parse(localStorage.getItem("student"));
-  const [answers, setAnswers] = useState([]);
-  const [score, setScore] = useState(null);
-
+  // Update questions when selectedTopic changes
   useEffect(() => {
-    if (!student) navigate("/student/login");
-  }, []);
-
-  const submitTest = () => {
-    let correct = 0;
-    test.questions.forEach((q, i) => {
-      if (answers[i] === q.answer) correct++;
-    });
-
-    const percent = Math.round(
-      (correct / test.questions.length) * 100
-    );
-
-    let updated = { ...student };
-
-    updated.testScores[lessonId] = percent;
-
-    updated = applyPromotion({
-      student: updated,
-      subject: test.subject,
-      score: percent,
-    });
-
-    if (percent >= 90) {
-      updated.completedLessons.push(lessonId);
+    if (!selectedTopic) {
+      setQuestions([]);
+      return;
     }
 
-    localStorage.setItem("student", JSON.stringify(updated));
-    setScore(percent);
-  };
+    const filteredQuestions = BASELINE_TEST.filter(
+      (q) => (q.topic || "").toLowerCase() === selectedTopic.toLowerCase()
+    );
 
-  if (!test) return <p>Test not found</p>;
+    setQuestions(filteredQuestions);
+  }, [selectedTopic]);
+
+  if (!BASELINE_TEST || BASELINE_TEST.length === 0) {
+    return <p>No questions available.</p>;
+  }
 
   return (
-    <div className="content">
-      <div className="card">
-        <h2>📝 Topic Test</h2>
+    <div className="topic-test">
+      <h2>Take a Topic Test</h2>
 
-        {test.questions.map((q, i) => (
-          <div key={i}>
-            <p>{q.q}</p>
-            {q.options.map((opt) => (
-              <button
-                key={opt}
-                onClick={() => {
-                  const copy = [...answers];
-                  copy[i] = opt;
-                  setAnswers(copy);
-                }}
-              >
-                {opt}
-              </button>
-            ))}
-          </div>
-        ))}
-
-        <button onClick={submitTest}>Submit</button>
-
-        {score !== null && (
-          <h3>
-            Score: {score}% {score >= 90 ? "✅ Passed" : "❌ Retry"}
-          </h3>
+      <label htmlFor="topicSelect">Select Topic:</label>
+      <select
+        id="topicSelect"
+        value={selectedTopic}
+        onChange={(e) => setSelectedTopic(e.target.value)}
+      >
+        <option value="">--Select--</option>
+        {BASELINE_TEST.map((q, idx) =>
+          q.topic ? (
+            <option key={idx} value={q.topic}>
+              {q.topic}
+            </option>
+          ) : null
         )}
-      </div>
+      </select>
+
+      {questions.length > 0 ? (
+        <div className="questions">
+          {questions.map((q) => (
+            <div key={q.id} className="question-card">
+              <p>{q.question}</p>
+              {q.options?.map((opt) => (
+                <label key={opt}>
+                  <input type="radio" name={q.id} value={opt} /> {opt}
+                </label>
+              ))}
+            </div>
+          ))}
+        </div>
+      ) : selectedTopic ? (
+        <p>No questions found for this topic.</p>
+      ) : null}
     </div>
   );
 }

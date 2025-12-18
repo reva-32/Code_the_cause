@@ -7,10 +7,24 @@ export default function Lessons({ student }) {
   const navigate = useNavigate();
 
   const eligibleLessons = lessons.filter(
-    (l) =>
-      l.subject === subject &&
-      l.class === student.levels[subject]
+    (l) => l.subject === subject && l.class === student.levels[subject]
   );
+
+  const markLessonComplete = (lessonId) => {
+    const students =
+      JSON.parse(localStorage.getItem("students")) || [];
+
+    const updatedStudents = students.map((s) => {
+      if (s.name === student.name) {
+        const completed = s.completedLessons || [];
+        if (!completed.includes(lessonId)) completed.push(lessonId);
+        return { ...s, completedLessons: completed };
+      }
+      return s;
+    });
+
+    localStorage.setItem("students", JSON.stringify(updatedStudents));
+  };
 
   return (
     <div className="card">
@@ -47,9 +61,10 @@ export default function Lessons({ student }) {
 
                 <button
                   className="primary-btn"
-                  onClick={() =>
-                    navigate(`/student/test/${lesson.id}`)
-                  }
+                  onClick={() => {
+                    markLessonComplete(lesson.id);
+                    navigate(`/student/test/${lesson.id}`);
+                  }}
                 >
                   Take Test 📝
                 </button>

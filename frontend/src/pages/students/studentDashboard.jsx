@@ -1,75 +1,45 @@
 import React, { useEffect, useState } from "react";
-import TopicTest from "./TopicTest";
 import Lessons from "./Lessons";
 import StudentProgress from "./StudentProgress";
-import "../../App.css";
-import { shouldShowTest } from "../../data/promotionRules";
-
-// SWITCH STUDENT HERE
-const loggedInStudent = "anaya"; // "rahul"
-
-const dummyStudents = {
-  rahul: { name: "Rahul", disability: false },
-  anaya: { name: "Anaya", disability: true },
-};
+import PlacementTest from "./PlacementTest"; // new component
+import { useNavigate } from "react-router-dom";
 
 export default function StudentDashboard() {
   const [student, setStudent] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const saved = JSON.parse(
-      localStorage.getItem(`student_${loggedInStudent}`)
-    );
-
-    if (saved) {
-      setStudent(saved);
-    } else {
-      setStudent({
-        ...dummyStudents[loggedInStudent],
-        placementDone: false,
-        scores: {},
-        classLevel: {},
-      });
-    }
+    const name = localStorage.getItem("loggedInStudent");
+    const students = JSON.parse(localStorage.getItem("students")) || [];
+    const loggedIn = students.find((s) => s.name === name);
+    if (!loggedIn) return;
+    setStudent(loggedIn);
   }, []);
 
-  const handlePlacementComplete = (data) => {
-    const updatedStudent = {
-      ...student,
-      ...data,
-    };
-
-    localStorage.setItem(
-      `student_${loggedInStudent}`,
-      JSON.stringify(updatedStudent)
-    );
-
-    setStudent(updatedStudent);
+  const handleLogout = () => {
+    localStorage.removeItem("loggedInStudent");
+    navigate("/");
   };
 
-  if (!student) return null;
+  if (!student) return <p>Login required</p>;
 
   return (
     <div className="app-container">
       <div className="topbar">
-        <div className="logo">
-          Student Dashboard – {student.name}
-        </div>
+        <h2>Welcome, {student.name}</h2>
+        <button onClick={handleLogout} style={{ marginLeft: "auto" }}>
+          Logout
+        </button>
       </div>
 
-      <div className="content">
-        {!student.placementDone ? (
-          <PlacementTest
-            student={student}
-            onComplete={handlePlacementComplete}
-          />
-        ) : (
-          <>
-            <StudentProgress student={student} />
-            <Lessons student={student} />
-          </>
-        )}
-      </div>
+      {!student.placementDone ? (
+        <PlacementTest student={student} setStudent={setStudent} />
+      ) : (
+        <>
+          <StudentProgress student={student} />
+          <Lessons student={student} />
+        </>
+      )}
     </div>
   );
 }

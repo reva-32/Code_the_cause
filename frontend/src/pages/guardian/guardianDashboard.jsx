@@ -1,28 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "../../App.css";
+import { useNavigate } from "react-router-dom";
 
 export default function GuardianDashboard() {
+  const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
-
-  const [students, setStudents] = useState([
-    {
-      name: "Rahul",
-      age: 7,
-      disability: false,
-      progress: 60,
-    },
-    {
-      name: "Anaya",
-      age: 6,
-      disability: true,
-      progress: 35,
-    },
-  ]);
+  const [students, setStudents] = useState(() => {
+    return JSON.parse(localStorage.getItem("students")) || [];
+  });
 
   const [formData, setFormData] = useState({
     name: "",
-    age: "",
-    grade: "",
     disability: false,
   });
 
@@ -36,95 +24,64 @@ export default function GuardianDashboard() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!formData.name.trim()) {
+      alert("Enter student name");
+      return;
+    }
 
-    if (!formData.name || !formData.age || !formData.grade) return;
+    const newStudent = {
+      name: formData.name.trim(),
+      disability: formData.disability,
+      levels: { maths: "Class 1", science: "Class 1" },
+      scores: { maths: 0, science: 0 },
+      completedLessons: [],
+      testScores: {},
+      placementDone: false, // track if baseline test is done
+    };
 
-    setStudents([
-      ...students,
-      {
-        ...formData,
-        progress: 0, // new student starts at 0%
-      },
-    ]);
-
-    setFormData({ name: "", age: "", grade: "", disability: false });
+    const updatedStudents = [...students, newStudent];
+    setStudents(updatedStudents);
+    localStorage.setItem("students", JSON.stringify(updatedStudents));
+    setFormData({ name: "", disability: false });
     setShowForm(false);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("guardianLoggedIn");
+    navigate("/");
   };
 
   return (
     <div className="app-container">
-      {/* TOPBAR */}
       <div className="topbar">
         <div className="logo">Guardian Dashboard</div>
+        <button onClick={handleLogout} style={{ marginLeft: "auto" }}>
+          Logout
+        </button>
       </div>
 
       <div className="content">
-        <h2 style={{ marginBottom: "20px" }}>
-          Your Students 🌱
-        </h2>
+        <h2 style={{ marginBottom: "20px" }}>Your Students 🌱</h2>
 
-        {/* STUDENT CARDS */}
         {students.map((student, index) => (
           <div className="card" key={index}>
             <h3>{student.name}</h3>
-            <p>Age: {student.age}</p>
-            <p>{student.grade}</p>
-            <p>
-              Disability:{" "}
-              {student.disability ? "Yes (Audio Mode)" : "No"}
-            </p>
-
-            {/* PROGRESS BAR */}
-            <div
-              style={{
-                marginTop: "10px",
-                background: "#e6f4ea",
-                borderRadius: "8px",
-                overflow: "hidden",
-              }}
-            >
-              <div
-                style={{
-                  width: `${student.progress}%`,
-                  background: "#74c69d",
-                  padding: "6px",
-                  color: "#1b4332",
-                  fontSize: "13px",
-                  textAlign: "center",
-                }}
-              >
-                {student.progress}% Completed
-              </div>
-            </div>
+            <p>Disability: {student.disability ? "Yes (Audio Mode)" : "No"}</p>
+            <p>Maths Level: {student.levels.maths}</p>
+            <p>Science Level: {student.levels.science}</p>
           </div>
         ))}
 
-        {/* ADD STUDENT BUTTON */}
-        <button
-          style={{ marginTop: "10px" }}
-          onClick={() => setShowForm(!showForm)}
-        >
-          + Add Student
-        </button>
+        <button onClick={() => setShowForm(!showForm)}>+ Add Student</button>
 
-        {/* ADD STUDENT FORM */}
         {showForm && (
           <div className="card" style={{ marginTop: "20px" }}>
             <h3>Add New Student</h3>
-
             <form onSubmit={handleSubmit}>
               <input
                 name="name"
                 placeholder="Student Name"
                 value={formData.name}
-                onChange={handleChange}
-              />
-
-              <input
-                name="age"
-                type="number"
-                placeholder="Age"
-                value={formData.age}
                 onChange={handleChange}
               />
 
@@ -138,7 +95,6 @@ export default function GuardianDashboard() {
                 Has Disability (Audio Content)
               </label>
 
-              <br />
               <button type="submit">Save Student</button>
             </form>
           </div>
