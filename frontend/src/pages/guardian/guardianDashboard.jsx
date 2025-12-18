@@ -36,7 +36,7 @@ export default function GuardianDashboard() {
       scores: { maths: 0, science: 0 },
       completedLessons: [],
       testScores: {},
-      placementDone: false, // track if baseline test is done
+      placementDone: false,
     };
 
     const updatedStudents = [...students, newStudent];
@@ -64,11 +64,33 @@ export default function GuardianDashboard() {
         <h2 style={{ marginBottom: "20px" }}>Your Students 🌱</h2>
 
         {students.map((student, index) => (
-          <div className="card" key={index}>
-            <h3>{student.name}</h3>
+          <div key={index} className="card" style={{ marginBottom: "20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3>{student.name}</h3>
+              {/* Button to navigate to individual student progress page */}
+              <button
+                onClick={() => navigate(`/guardian/student/${index}`)}
+                className="primary-btn"
+                style={{
+                  backgroundColor: "#4ADE80", // match teacher/navbar color
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: "600",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "scale(1.05)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "scale(1)";
+                }}
+              >
+                View Progress
+              </button>
+            </div>
             <p>Disability: {student.disability ? "Yes (Audio Mode)" : "No"}</p>
-            <p>Maths Level: {student.levels.maths}</p>
-            <p>Science Level: {student.levels.science}</p>
           </div>
         ))}
 

@@ -16,6 +16,7 @@ import StudentDashboard from "./pages/students/studentDashboard";
 import StudentProgress from "./pages/students/StudentProgress";
 import TopicTest from "./pages/students/TopicTest";
 import Lessons from "./pages/students/Lessons";
+import StudentProgressPage from "./pages/guardian/StudentProgressPage";
 
 export default function App() {
   // Route Guards
@@ -65,7 +66,14 @@ export default function App() {
             </ProtectedGuardian>
           }
         />
-
+        <Route
+          path="/guardian/student/:id"
+          element={
+            <ProtectedGuardian>
+              <StudentProgressPage />
+            </ProtectedGuardian>
+          }
+        />
         {/* STUDENT */}
         <Route path="/student/login" element={<StudentLogin />} />
         <Route
