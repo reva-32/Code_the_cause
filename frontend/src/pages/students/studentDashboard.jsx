@@ -121,6 +121,23 @@ export default function StudentDashboard() {
 
   if (!student) return null;
 
+  const formatBotMessage = (text) => {
+    return text
+      // Headings
+      .replace(/📌 ANSWER/g, "<h3>📌 Answer</h3>")
+      .replace(/📖 EXPLANATION/g, "<h3>📖 Explanation</h3>")
+      .replace(/💡 EXAMPLE/g, "<h3>💡 Example</h3>")
+
+      // Horizontal lines
+      .replace(/-{3,}/g, "<hr />")
+
+      // Numbered steps
+      .replace(/(\d+\.)/g, "<br/><strong>$1</strong>")
+
+      // New lines
+      .replace(/\n/g, "<br/>");
+  };  
+
   return (
     <div style={{ backgroundColor: colors.pastelBg, minHeight: "100vh", padding: "20px" }}>
       <div style={{ maxWidth: "1350px", margin: "0 auto", fontFamily: "'Segoe UI', Roboto, sans-serif" }}>
@@ -226,7 +243,14 @@ export default function StudentDashboard() {
                         color: msg.role === "user" ? "#fff" : "#1e293b", 
                         maxWidth: "85%", fontSize: "14px", fontWeight: "500", boxShadow: "0 2px 8px rgba(0,0,0,0.02)", border: msg.role === "bot" ? "1px solid #e2e8f0" : "none"
                       }}>
-                        {msg.content}
+                        <div
+                          dangerouslySetInnerHTML={{
+                            __html:
+                              msg.role === "bot"
+                                ? formatBotMessage(msg.content)
+                                : msg.content
+                          }}
+                        />
                       </div>
                     </div>
                   ))}
