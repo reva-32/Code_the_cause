@@ -5,7 +5,7 @@ export const lessons = [
     class: "Class 1",
     title: "Addition Basics",
     videoId: "HW0pypEWlNA",
-    audio: "/audios/class 1 - addition.mp3",
+    audio: "/audios/class1-addition.mp3",
   },
   {
     id: "maths-2-1",
@@ -13,7 +13,7 @@ export const lessons = [
     class: "Class 2",
     title: "Multiplication Basics",
     videoId: "fZFwHpiAVE0",
-    audio: "/audios/class 2 - multiplication.mp3",
+    audio: "/audios/class2-multiplication.mp3",
   },
   {
     id: "science-1-1",
@@ -21,7 +21,7 @@ export const lessons = [
     class: "Class 1",
     title: "Good Habits",
     videoId: "9yWcC4mT0vs",
-    audio: "/audios/class 1 - good habits.mp3",
+    audio: "/audios/class1-goodhabits.mp3",
   },
   {
     id: "science-2-1",
@@ -29,7 +29,7 @@ export const lessons = [
     class: "Class 2",
     title: "Water Cycle",
     videoId: "s0bS-SBAgJI",
-    audio: "/audios/class 2 - water cycle.mp3",
+    audio: "/audios/class2-watercycle.mp3",
   },
   {
     id: "science-3-1",
@@ -37,6 +37,6 @@ export const lessons = [
     class: "Class 3",
     title: "Living and Non-living Things",
     videoId: "saL8acHZJ8Q",
-    audio: "/audios/class 3 - living-nonliving.mp3",
+    audio: "/audios/class3-living-nonliving.mp3",
   },
 ];
