@@ -1,54 +1,33 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import { lessons } from "../../data/lessons";
 
 export default function Lessons({ student, onComplete, setWatchProgress, primaryColor = "#065f46" }) {
   const [subject, setSubject] = useState("maths");
-  const audioRef = useRef(null);
+  const isBlind = student.disability === "blind";
+  const isADHD = student.disability === "adhd";
 
-  const themeColors = {
-    primary: primaryColor,
-    locked: "#9ca3af",
-    darkGreenBg: "#064e3b",
-  };
-
-  const isDisabilityMode = student.disability === "yes" || student.disability === true;
-
-  // Track 50% progress for Audio
-  const handleAudioProgress = () => {
-    if (audioRef.current) {
-      const { currentTime, duration } = audioRef.current;
-      if (currentTime / duration >= 0.5) {
-        setWatchProgress(50); 
-      }
-    }
+  const handleManualComplete = (lessonId) => {
+    // We only set 100% at the moment of completion for the dashboard UI
+    setWatchProgress(100);
+    onComplete(lessonId, subject);
   };
 
   const eligibleLessons = lessons.filter((l) => {
     const studentLevel = (student.levels[subject] || "").replace(/\s/g, "").toLowerCase();
     const lessonLevel = (l.class || "").replace(/\s/g, "").toLowerCase();
-    const matchesSubject = l.subject.toLowerCase() === subject.toLowerCase();
-    const matchesLevel = lessonLevel === studentLevel;
-
-    if (!matchesSubject || !matchesLevel) return false;
-    // Strict separation logic
-    return isDisabilityMode ? !!l.audio : !!l.videoId;
+    return l.subject.toLowerCase() === subject.toLowerCase() && lessonLevel === studentLevel;
   });
 
   return (
-    <div style={{ padding: "25px", borderRadius: "24px", background: "#fff", boxShadow: "0 10px 25px rgba(0,0,0,0.05)", border: "1px solid #f1f5f9" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "25px" }}>
-        <div>
-          <h3 style={{ margin: 0, color: "#1e293b", fontWeight: "800", fontSize: "20px" }}>
-            {isDisabilityMode ? "🎧 Audio Lessons" : "📚 Video Lessons"}
-          </h3>
-          <p style={{ margin: "4px 0 0 0", color: "#64748b", fontSize: "13px", fontWeight: "600" }}>
-            Currently studying: <span style={{ color: themeColors.primary }}>{student.levels[subject]}</span>
-          </p>
-        </div>
+    <div style={{ padding: "25px", borderRadius: "24px", background: "#fff", boxShadow: "0 10px 25px rgba(0,0,0,0.05)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
+        <h3 style={{ fontSize: isADHD ? "24px" : "20px" }}>
+          {isBlind ? "🎧 Audio Learning" : "📺 Video Learning"}
+        </h3>
         <select 
           value={subject} 
           onChange={(e) => { setSubject(e.target.value); setWatchProgress(0); }}
-          style={{ padding: "10px 15px", borderRadius: "12px", border: "2px solid #f1f5f9", fontWeight: "bold", color: themeColors.primary }}
+          style={{ padding: "8px", borderRadius: "10px", fontWeight: "bold" }}
         >
           <option value="maths">Mathematics</option>
           <option value="science">Science</option>
@@ -57,44 +36,60 @@ export default function Lessons({ student, onComplete, setWatchProgress, primary
 
       <div style={{ display: "flex", flexDirection: "column", gap: "25px" }}>
         {eligibleLessons.map((lesson, index) => {
-          const unlocked = index === 0 || student.completedLessons.includes(eligibleLessons[index - 1]?.id);
-          const isCompleted = student.completedLessons.includes(lesson.id);
+          const isLocked = index > 0 && !student.completedLessons?.includes(eligibleLessons[index - 1].id);
 
           return (
-            <div key={lesson.id} style={{ border: "1px solid #f1f5f9", padding: "20px", borderRadius: "20px", background: unlocked ? "#fff" : "#f8fafc" }}>
-              <h4 style={{ margin: "0 0 15px 0", color: unlocked ? "#1e293b" : themeColors.locked, fontSize: "17px", fontWeight: "700" }}>
-                {isCompleted ? "✅ " : ""}{lesson.title}
-              </h4>
+            <div key={lesson.id} style={{ opacity: isLocked ? 0.5 : 1, pointerEvents: isLocked ? "none" : "all" }}>
+              
+              {/* ADHD Focus Mode: Larger Titles & Card borders */}
+              <div style={{ 
+                padding: "20px", 
+                borderRadius: "18px", 
+                border: isADHD ? `3px solid ${primaryColor}` : "1px solid #eee",
+                background: isADHD ? "#fdfdfd" : "#fff"
+              }}>
+                <h4 style={{ fontSize: isADHD ? "20px" : "18px", marginBottom: "15px" }}>{lesson.title}</h4>
 
-              {unlocked ? (
-                <div style={{ width: "100%" }}>
-                  {isDisabilityMode ? (
-                    <div style={{ padding: "40px 20px", background: `linear-gradient(135deg, ${themeColors.darkGreenBg} 0%, #022c22 100%)`, borderRadius: "16px", textAlign: "center", color: "white" }}>
-                      <div style={{ fontSize: "60px", marginBottom: "15px" }}>📻</div>
-                      <p style={{ fontWeight: "700", marginBottom: "20px" }}>Listening: {lesson.title}</p>
-                      <audio ref={audioRef} controls style={{ width: "100%" }} onTimeUpdate={handleAudioProgress}>
-                        <source src={lesson.audio} type="audio/mpeg" />
-                      </audio>
+                {isBlind ? (
+                  <audio controls src={lesson.audio} style={{ width: "100%" }} onEnded={() => handleManualComplete(lesson.id)} />
+                ) : (
+                  <div>
+                    <div style={{ position: "relative", paddingTop: "56.25%", marginBottom: "15px" }}>
+                      <iframe 
+                        style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", borderRadius: "12px" }}
+                        src={`https://www.youtube.com/embed/${lesson.videoId}`}
+                        title="lesson" frameBorder="0" allowFullScreen
+                      />
                     </div>
-                  ) : (
-                    <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, overflow: "hidden", borderRadius: "16px", background: "#000" }}>
-                      <iframe style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }} src={`https://www.youtube.com/embed/${lesson.videoId}?enablejsapi=1`} title={lesson.title} frameBorder="0" allowFullScreen />
-                    </div>
-                  )}
+                    
+                    {/* ADHD Specific Step-by-Step UI */}
+                    {isADHD && (
+                      <div style={{ marginBottom: "15px", padding: "10px", background: "#f0fdf4", borderRadius: "8px", fontSize: "14px" }}>
+                        ✅ <strong>Step 1:</strong> Watch the video carefully.<br/>
+                        🚀 <strong>Step 2:</strong> Click the big button below to start your quiz!
+                      </div>
+                    )}
+                  </div>
+                )}
 
-                  <button 
-                    onClick={() => { setWatchProgress(100); onComplete(lesson.id, subject); }}
-                    style={{ marginTop: "18px", width: "100%", padding: "16px", background: themeColors.primary, color: "white", border: "none", borderRadius: "15px", cursor: "pointer", fontWeight: "800" }}
-                  >
-                    {isCompleted ? "Retake Mastery Test 📝" : "Finish & Take Test 📝"}
-                  </button>
-                </div>
-              ) : (
-                <div style={{ padding: "40px", textAlign: "center", color: themeColors.locked }}>
-                  <span style={{ fontSize: "28px" }}>🔒</span>
-                  <p>Complete previous lesson to unlock.</p>
-                </div>
-              )}
+                <button 
+                  onClick={() => handleManualComplete(lesson.id)} 
+                  style={{
+                    width: "100%",
+                    padding: isADHD ? "20px" : "14px", // Bigger button for ADHD focus
+                    background: primaryColor,
+                    color: "white",
+                    border: "none",
+                    borderRadius: "12px",
+                    fontWeight: "800",
+                    fontSize: isADHD ? "18px" : "14px",
+                    cursor: "pointer",
+                    boxShadow: "0 4px 10px rgba(0,0,0,0.1)"
+                  }}
+                >
+                  {isADHD ? "I'M READY FOR THE TEST! ✍️" : "Take Topic Test 📝"}
+                </button>
+              </div>
             </div>
           );
         })}

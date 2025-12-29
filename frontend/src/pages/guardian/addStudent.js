@@ -3,7 +3,7 @@ import { addStudent } from "../data/addStudent";
 
 export default function GuardianAddStudent() {
   const [name, setName] = useState("");
-  const [disability, setDisability] = useState(false);
+  const [disability, setDisability] = useState("none");
 
   const handleAdd = () => {
     if (!name.trim()) {
@@ -11,11 +11,14 @@ export default function GuardianAddStudent() {
       return;
     }
 
-    addStudent({ name, disability });
+    addStudent({
+      name,
+      disability, // none | blind | deaf | adhd
+    });
 
     alert("Student added successfully!");
     setName("");
-    setDisability(false);
+    setDisability("none");
 
     console.log(
       "Students DB:",
@@ -33,16 +36,29 @@ export default function GuardianAddStudent() {
         onChange={(e) => setName(e.target.value)}
       />
 
-      <label>
-        <input
-          type="checkbox"
-          checked={disability}
-          onChange={(e) => setDisability(e.target.checked)}
-        />
-        Disability (Blind)
+      <label style={{ display: "block", marginTop: "12px" }}>
+        Disability Category
       </label>
 
-      <button onClick={handleAdd}>Add Student</button>
+      <select
+        value={disability}
+        onChange={(e) => setDisability(e.target.value)}
+        style={{
+          width: "100%",
+          padding: "8px",
+          marginTop: "6px",
+          borderRadius: "6px",
+        }}
+      >
+        <option value="none">None</option>
+        <option value="blind">Blind (Audio Required)</option>
+        <option value="deaf">Deaf (Text Only)</option>
+        <option value="adhd">ADHD (Focus Mode)</option>
+      </select>
+
+      <button style={{ marginTop: "16px" }} onClick={handleAdd}>
+        Add Student
+      </button>
     </div>
   );
 }

@@ -1,33 +1,28 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import "../../App.css";
 import { useNavigate } from "react-router-dom";
 
 export default function GuardianDashboard() {
   const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
+
   const [students, setStudents] = useState(() => {
     return JSON.parse(localStorage.getItem("students")) || [];
   });
 
   const [formData, setFormData] = useState({
     name: "",
-    disability: false,
+    disability: "none",
   });
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === "checkbox" ? checked : value,
-    });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.name.trim()) {
-      alert("Enter student name");
-      return;
-    }
+    if (!formData.name.trim()) return alert("Enter student name");
 
     const newStudent = {
       name: formData.name.trim(),
@@ -39,89 +34,168 @@ export default function GuardianDashboard() {
       placementDone: false,
     };
 
-    const updatedStudents = [...students, newStudent];
-    setStudents(updatedStudents);
-    localStorage.setItem("students", JSON.stringify(updatedStudents));
-    setFormData({ name: "", disability: false });
+    const updated = [...students, newStudent];
+    setStudents(updated);
+    localStorage.setItem("students", JSON.stringify(updated));
+
+    setFormData({ name: "", disability: "none" });
     setShowForm(false);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("guardianLoggedIn");
-    navigate("/");
+  const badgeColor = (d) => {
+    if (d === "blind") return "#fde68a";
+    if (d === "deaf") return "#bfdbfe";
+    if (d === "adhd") return "#fecaca";
+    return "#e5e7eb";
   };
 
   return (
-    <div className="app-container">
-      <div className="topbar">
-        <div className="logo">Guardian Dashboard</div>
-        <button onClick={handleLogout} style={{ marginLeft: "auto" }}>
-          Logout
-        </button>
-      </div>
+    <div style={styles.page}>
+      <h2 style={styles.title}>Your Students 🌱</h2>
 
-      <div className="content">
-        <h2 style={{ marginBottom: "20px" }}>Your Students 🌱</h2>
+      {students.map((s, i) => (
+        <div key={i} style={styles.card}>
+          <div>
+            <h3 style={{ margin: 0 }}>{s.name}</h3>
+            <span
+              style={{
+                ...styles.badge,
+                background: badgeColor(s.disability),
+              }}
+            >
+              {typeof s.disability === "string"
+  ? s.disability.toUpperCase()
+  : s.disability
+  ? "BLIND"
+  : "NONE"}
 
-        {students.map((student, index) => (
-          <div key={index} className="card" style={{ marginBottom: "20px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3>{student.name}</h3>
-              {/* Button to navigate to individual student progress page */}
-              <button
-                onClick={() => navigate(`/guardian/student/${index}`)}
-                className="primary-btn"
-                style={{
-                  backgroundColor: "#4ADE80", // match teacher/navbar color
-                  padding: "8px 16px",
-                  borderRadius: "8px",
-                  border: "none",
-                  cursor: "pointer",
-                  fontWeight: "600",
-                  transition: "all 0.2s",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "scale(1.05)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "scale(1)";
-                }}
-              >
-                View Progress
-              </button>
-            </div>
-            <p>Disability: {student.disability ? "Yes (Audio Mode)" : "No"}</p>
+            </span>
           </div>
-        ))}
 
-        <button onClick={() => setShowForm(!showForm)}>+ Add Student</button>
+          <button
+            style={styles.viewBtn}
+            onClick={() => navigate(`/guardian/student/${i}`)}
+          >
+            View Progress
+          </button>
+        </div>
+      ))}
 
-        {showForm && (
-          <div className="card" style={{ marginTop: "20px" }}>
-            <h3>Add New Student</h3>
-            <form onSubmit={handleSubmit}>
-              <input
-                name="name"
-                placeholder="Student Name"
-                value={formData.name}
-                onChange={handleChange}
-              />
+      <button style={styles.addBtn} onClick={() => setShowForm(!showForm)}>
+        + Add Student
+      </button>
 
-              <label style={{ display: "flex", gap: "10px" }}>
-                <input
-                  type="checkbox"
-                  name="disability"
-                  checked={formData.disability}
-                  onChange={handleChange}
-                />
-                Has Disability (Audio Content)
-              </label>
+      {showForm && (
+        <div style={styles.formCard}>
+          <h3>Add New Student</h3>
 
-              <button type="submit">Save Student</button>
-            </form>
-          </div>
-        )}
-      </div>
+          <form onSubmit={handleSubmit} style={styles.form}>
+            <input
+              name="name"
+              placeholder="Student Name"
+              value={formData.name}
+              onChange={handleChange}
+              style={styles.input}
+            />
+
+            <select
+              name="disability"
+              value={formData.disability}
+              onChange={handleChange}
+              style={styles.input}
+            >
+              <option value="none">No Disability</option>
+              <option value="blind">Blind (Audio Support)</option>
+              <option value="deaf">Deaf</option>
+              <option value="adhd">ADHD</option>
+            </select>
+
+            <button type="submit" style={styles.saveBtn}>
+              Save Student
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
+
+/* ---------- STYLES ---------- */
+
+const styles = {
+  page: {
+    maxWidth: "900px",
+    margin: "40px auto",
+    padding: "20px",
+  },
+  title: {
+    marginBottom: "20px",
+    fontSize: "28px",
+    fontWeight: "800",
+  },
+  card: {
+    background: "#ffffff",
+    padding: "20px",
+    borderRadius: "14px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "16px",
+    boxShadow: "0 6px 12px rgba(0,0,0,0.06)",
+  },
+  badge: {
+    marginTop: "6px",
+    display: "inline-block",
+    padding: "4px 10px",
+    borderRadius: "20px",
+    fontSize: "12px",
+    fontWeight: "700",
+  },
+  viewBtn: {
+    background: "#10b981",
+    color: "white",
+    border: "none",
+    padding: "10px 16px",
+    borderRadius: "10px",
+    cursor: "pointer",
+    fontWeight: "600",
+  },
+  addBtn: {
+    marginTop: "20px",
+    padding: "12px 18px",
+    borderRadius: "12px",
+    border: "none",
+    background: "#065f46",
+    color: "white",
+    fontWeight: "700",
+    cursor: "pointer",
+  },
+  formCard: {
+    marginTop: "30px",
+    background: "#ffffff",
+    padding: "25px",
+    borderRadius: "16px",
+    boxShadow: "0 6px 12px rgba(0,0,0,0.06)",
+  },
+  form: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "14px",
+    marginTop: "12px",
+  },
+  input: {
+    padding: "12px",
+    borderRadius: "10px",
+    border: "1px solid #e5e7eb",
+    fontSize: "14px",
+  },
+  saveBtn: {
+    background: "#4f46e5",
+    color: "white",
+    border: "none",
+    padding: "12px",
+    borderRadius: "12px",
+    fontWeight: "700",
+    cursor: "pointer",
+  },
+};
