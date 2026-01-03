@@ -5,210 +5,72 @@ export default function PlacementTest({ student, setStudent }) {
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
 
-  const colors = {
-    primaryDeep: "#065f46",
-    accentGreen: "#10b981",
-    softBg: "#f8fafc",
-    slate: "#1e293b",
-  };
-
-  // 🔊 Text-to-Speech helper
   const speak = (text) => {
-    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 0.9;
-    utterance.pitch = 1;
-    window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
   };
 
-  const handleChange = (id, value) => {
-    setAnswers({ ...answers, [id]: value });
-  };
+  // AUTOMATIC WELCOME AUDIO
+  useEffect(() => {
+    speak(
+      "Welcome to your first test. There are questions below. " +
+      "Above each question's options, there is a button on the left that says Read Question. " +
+      "Click it to hear the question out loud."
+    );
+  }, []);
 
   const handleSubmit = () => {
     const updatedStudent = { ...student, placementDone: true, levels: {} };
-
     const correctCounts = {};
-
-    // Count correct answers per subject
     BASELINE_TEST.forEach((q) => {
       if (!correctCounts[q.subject]) correctCounts[q.subject] = 0;
       if (answers[q.id] === q.answer) correctCounts[q.subject]++;
     });
-
-    // Decide level
     Object.keys(correctCounts).forEach((subject) => {
       const total = BASELINE_TEST.filter((q) => q.subject === subject).length;
-      updatedStudent.levels[subject] =
-        correctCounts[subject] === total ? "Class 2" : "Class 1";
+      updatedStudent.levels[subject] = correctCounts[subject] === total ? "Class 2" : "Class 1";
     });
-
-    // Save to localStorage
     const students = JSON.parse(localStorage.getItem("students")) || [];
-    const updatedStudents = students.map((s) =>
-      s.name === student.name ? updatedStudent : s
-    );
+    const updatedStudents = students.map((s) => s.name === student.name ? updatedStudent : s);
     localStorage.setItem("students", JSON.stringify(updatedStudents));
-
     setStudent(updatedStudent);
     setSubmitted(true);
   };
 
-  // 🔊 Speak results automatically
-  useEffect(() => {
-    if (submitted && student?.levels) {
-      speak(
-        `Assessment complete. Maths level is ${student.levels.maths}. 
-         Science level is ${student.levels.science}.`
-      );
-    }
-  }, [submitted]);
-
-  /* ---------------- RESULT SCREEN ---------------- */
-
-  if (submitted) {
-    return (
-      <div
-        role="status"
-        aria-live="polite"
-        style={{
-          textAlign: "center",
-          padding: "60px 20px",
-          background: "#fff",
-          borderRadius: "28px",
-          maxWidth: "800px",
-          margin: "0 auto",
-        }}
-      >
-        <div style={{ fontSize: "60px", marginBottom: "20px" }}>🎓</div>
-        <h2 style={{ color: colors.primaryDeep }}>Assessment Complete!</h2>
-        <p>Your personalized learning path is ready.</p>
-
-        <div style={{ display: "flex", justifyContent: "center", gap: "20px" }}>
-          <div style={{ padding: "15px 25px", background: colors.softBg, borderRadius: "15px" }}>
-            <small>MATHS</small>
-            <div>{student.levels.maths}</div>
-          </div>
-          <div style={{ padding: "15px 25px", background: colors.softBg, borderRadius: "15px" }}>
-            <small>SCIENCE</small>
-            <div>{student.levels.science}</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  /* ---------------- TEST SCREEN ---------------- */
+  if (submitted) return <div style={{textAlign: 'center', padding: '50px'}}><h2>Test Done! Check your Dashboard.</h2></div>;
 
   return (
-    <div
-      role="form"
-      aria-labelledby="placement-title"
-      style={{
-        maxWidth: "800px",
-        margin: "0 auto",
-        background: "#fff",
-        padding: "40px",
-        borderRadius: "28px",
-      }}
-    >
-      <div style={{ textAlign: "center", marginBottom: "40px" }}>
-        <h2 id="placement-title" style={{ color: colors.primaryDeep }}>
-          Placement Test 📝
-        </h2>
-        <p>Use keyboard or audio to answer.</p>
-      </div>
-
+    <div style={{ maxWidth: "800px", margin: "0 auto", background: "#fff", padding: "40px", borderRadius: "24px" }}>
+      <h2 style={{ textAlign: "center", color: "#065f46" }}>Placement Test 📝</h2>
       {BASELINE_TEST.map((q, index) => (
-        <div
-          key={q.id}
-          style={{ marginBottom: "35px" }}
-          role="group"
-          aria-labelledby={`question-${q.id}`}
-        >
-          <p
-            id={`question-${q.id}`}
-            style={{ fontWeight: "700", fontSize: "18px" }}
-          >
-            Question {index + 1}. {q.question}
-          </p>
-
-          {/* 🔊 Read Question Button */}
-          <button
-            type="button"
-            onClick={() =>
-              speak(
-                `Question ${index + 1}. ${q.question}. Options are ${q.options.join(", ")}`
-              )
-            }
-            style={{
-              marginBottom: "10px",
-              background: "#e5f7ef",
-              border: "none",
-              padding: "8px 14px",
-              borderRadius: "10px",
-              cursor: "pointer",
-              fontWeight: "600",
-            }}
-          >
-            🔊 Read Question
+        <div key={q.id} style={{ marginBottom: "40px", borderBottom: "1px solid #eee", paddingBottom: "20px" }}>
+          <p style={{ fontWeight: "bold", fontSize: "18px" }}>{index + 1}. {q.question}</p>
+          
+          <button onClick={() => speak(`${q.question}. Options are: ${q.options.join(", ")}`)} style={testStyles.audioBtn}>
+            🔊 Read Question (Left)
           </button>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
             {q.options.map((opt) => (
-              <label
-                key={opt}
-                style={{
-                  padding: "14px",
-                  borderRadius: "12px",
-                  border:
-                    answers[q.id] === opt
-                      ? `2px solid ${colors.accentGreen}`
-                      : "2px solid #eee",
-                  cursor: "pointer",
-                }}
-              >
-                <input
-                  type="radio"
-                  name={q.id}
-                  value={opt}
-                  aria-describedby={`question-${q.id}`}
-                  checked={answers[q.id] === opt}
-                  onChange={(e) => handleChange(q.id, e.target.value)}
-                  style={{ marginRight: "10px" }}
-                />
+              <label key={opt} style={{...testStyles.option, borderColor: answers[q.id] === opt ? "#10b981" : "#eee"}}>
+                <input type="radio" name={q.id} value={opt} onChange={() => setAnswers({...answers, [q.id]: opt})} style={{marginRight: '10px'}} />
                 {opt}
               </label>
             ))}
           </div>
         </div>
       ))}
-
-      <button
-        onClick={handleSubmit}
-        disabled={Object.keys(answers).length < BASELINE_TEST.length}
-        style={{
-          marginTop: "30px",
-          width: "100%",
-          padding: "18px",
-          background:
-            Object.keys(answers).length < BASELINE_TEST.length
-              ? "#cbd5e1"
-              : colors.primaryDeep,
-          color: "white",
-          border: "none",
-          borderRadius: "16px",
-          fontSize: "18px",
-          fontWeight: "800",
-          cursor:
-            Object.keys(answers).length < BASELINE_TEST.length
-              ? "not-allowed"
-              : "pointer",
-        }}
-      >
-        Submit Assessment 🚀
+      <button onClick={handleSubmit} disabled={Object.keys(answers).length < BASELINE_TEST.length} style={testStyles.submitBtn}>
+        Finish Test 🚀
       </button>
     </div>
   );
 }
+
+const testStyles = {
+  audioBtn: { background: "#ecfdf5", border: "none", padding: "10px", borderRadius: "8px", marginBottom: "15px", cursor: "pointer", fontWeight: "bold", color: "#065f46" },
+  option: { padding: "15px", border: "2px solid", borderRadius: "12px", cursor: "pointer" },
+  submitBtn: { width: "100%", padding: "20px", background: "#065f46", color: "#fff", border: "none", borderRadius: "15px", fontWeight: "bold", fontSize: "18px", cursor: "pointer" }
+};

@@ -1,64 +1,78 @@
-import { useNavigate, Link } from "react-router-dom";
 import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import "./auth.css";
 
 export default function GuardianLogin() {
   const navigate = useNavigate();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const handleLogin = () => {
-    // Fetch stored guardians from localStorage
+    if (!email || !password) {
+      alert("Enter email and password");
+      return;
+    }
+
     const guardians = JSON.parse(localStorage.getItem("guardians")) || [];
 
-    // Check if credentials match any guardian
     const foundGuardian = guardians.find(
-      (g) => g.email === email && g.password === password
+      (g) =>
+        g.email.toLowerCase() === email.toLowerCase() &&
+        g.password === password
     );
 
-    if (foundGuardian) {
-      // Set login flag in localStorage
-      localStorage.setItem("guardianLoggedIn", JSON.stringify(foundGuardian));
-      navigate("/guardian/dashboard");
-    } else {
+    if (!foundGuardian) {
       alert("Invalid email or password");
+      return;
     }
+
+    // ✅ Store logged-in guardian session
+    localStorage.setItem(
+      "guardianLoggedIn",
+      JSON.stringify({
+        id: foundGuardian.id,
+        fullName: foundGuardian.fullName,
+        email: foundGuardian.email,
+        orphanage: foundGuardian.orphanage,
+      })
+    );
+
+    navigate("/guardian/dashboard");
   };
 
   return (
     <div style={box}>
       <h2>Guardian Login</h2>
 
-      <label htmlFor="guardianEmail">Email</label>
       <input
-        type="email"
-        id="guardianEmail"
-        name="guardianEmail"
         placeholder="Email"
+        type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
       />
 
-      <label htmlFor="guardianPassword">Password</label>
       <input
-        type="password"
-        id="guardianPassword"
-        name="guardianPassword"
         placeholder="Password"
+        type="password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
 
       <button onClick={handleLogin}>Login</button>
-      <Link to="/guardian/signup">Create Account</Link>
+
+      <p>
+        Don’t have an account?{" "}
+        <Link to="/guardian/signup">Sign up</Link>
+      </p>
     </div>
   );
 }
 
 const box = {
-  maxWidth: "300px",
-  margin: "100px auto",
+  maxWidth: "320px",
+  margin: "120px auto",
   display: "flex",
   flexDirection: "column",
-  gap: "10px"
+  gap: "10px",
 };

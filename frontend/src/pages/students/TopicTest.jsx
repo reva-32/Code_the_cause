@@ -18,8 +18,9 @@ export default function TopicTest() {
   const isBlind = student?.disability === "blind";
   const isADHD = student?.disability === "adhd";
 
+  // Helper to speak text
   const speak = (text) => {
-    if (!isBlind || !window.speechSynthesis) return;
+    if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 0.9;
@@ -36,45 +37,61 @@ export default function TopicTest() {
     const sub = location.state?.subject || (lessonId.includes("maths") ? "maths" : "science");
     const test = TOPIC_TEST.find(t => 
       t.subject === sub && 
-      t.level.replace(/\s/g, "") === s.levels[sub].replace(/\s/g, "")
+      t.level.replace(/\s/g, "").toLowerCase() === s.levels[sub].replace(/\s/g, "").toLowerCase()
     );
 
     setStudent(s);
     setSubject(sub);
     setQuestions(test?.questions || []);
     
-    if (isBlind) speak(`Test started. Question 1: ${test?.questions[0].question}`);
+    // INITIAL GUIDANCE AUDIO
+    const welcomeMsg = `Topic Test for ${sub} started. To hear the question and options, click the audio button located on the left side of each question.`;
+    speak(welcomeMsg);
   }, [lessonId]);
 
   const q = questions[currentQuestionIndex];
 
+  // Function for the specific Audio Button next to questions
+  const handleReadQuestion = () => {
+    const optionsText = q.options.join(", ");
+    speak(`Question: ${q.question}. The options are: ${optionsText}`);
+  };
+
   const handleOptionSelect = (opt) => {
     setAnswers({ ...answers, [currentQuestionIndex]: opt });
-    if (isBlind) speak(`Selected ${opt}. Click bottom right to continue.`);
+    speak(`Selected ${opt}`);
   };
 
   const nextQuestion = () => {
     const nextIdx = currentQuestionIndex + 1;
     setCurrentQuestionIndex(nextIdx);
-    if (isBlind) speak(`Question ${nextIdx + 1}: ${questions[nextIdx].question}`);
+    // Brief notification for next question
+    speak(`Moving to Question ${nextIdx + 1}`);
   };
 
   const handleSubmit = () => {
     const result = evaluateTopicTest(questions, answers);
     setScore(result);
     setSubmitted(true);
-    // ... (Your existing localStorage logic remains here)
+    
+    // Update progress in local storage
+    const students = JSON.parse(localStorage.getItem("students")) || [];
+    const updated = students.map(s => {
+      if(s.name === student.name) {
+        const completed = s.completedLessons || [];
+        if(!completed.includes(lessonId)) completed.push(lessonId);
+        return {...s, completedLessons: completed};
+      }
+      return s;
+    });
+    localStorage.setItem("students", JSON.stringify(updated));
+    speak(`Test submitted. Your score is ${result} percent.`);
   };
 
   if (!student) return null;
 
   return (
-    <div style={{ 
-      maxWidth: "800px", 
-      margin: "40px auto", 
-      padding: "20px",
-      fontFamily: "'Inter', sans-serif"
-    }}>
+    <div style={{ maxWidth: "800px", margin: "40px auto", padding: "20px", fontFamily: "'Inter', sans-serif" }}>
       {!submitted ? (
         <div style={{ 
           background: "#fff", 
@@ -93,20 +110,27 @@ export default function TopicTest() {
             <div style={{ height: "8px", background: "#f1f5f9", borderRadius: "10px", overflow: "hidden" }}>
               <div style={{ 
                 width: `${((currentQuestionIndex + 1) / questions.length) * 100}%`, 
-                height: "100%", 
-                background: "#10b981", 
-                transition: "width 0.4s ease" 
+                height: "100%", background: "#10b981", transition: "width 0.4s ease" 
               }} />
             </div>
           </div>
 
           {q && (
             <div>
-              <h2 style={{ fontSize: isADHD ? "26px" : "22px", color: "#1e293b", marginBottom: "25px", lineHeight: "1.4" }}>
-                {q.question}
-              </h2>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: "15px", marginBottom: "25px" }}>
+                {/* THE LEFT AUDIO BUTTON */}
+                <button 
+                  onClick={handleReadQuestion}
+                  title="Read Question Aloud"
+                  style={styles.audioIconBtn}
+                >
+                  🔊
+                </button>
+                <h2 style={{ fontSize: isADHD ? "26px" : "22px", color: "#1e293b", margin: 0, lineHeight: "1.4" }}>
+                  {q.question}
+                </h2>
+              </div>
 
-              {/* OPTION CARDS (BETTER THAN RADIO BUTTONS) */}
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 {q.options.map((opt) => {
                   const isSelected = answers[currentQuestionIndex] === opt;
@@ -123,7 +147,6 @@ export default function TopicTest() {
                         fontSize: "16px",
                         fontWeight: isSelected ? "700" : "500",
                         cursor: "pointer",
-                        transition: "all 0.2s ease",
                         display: "flex",
                         alignItems: "center",
                         gap: "15px"
@@ -139,7 +162,6 @@ export default function TopicTest() {
                 })}
               </div>
 
-              {/* NAVIGATION */}
               <div style={{ marginTop: "40px", display: "flex", justifyContent: "flex-end" }}>
                 {currentQuestionIndex < questions.length - 1 ? (
                   <button
@@ -163,13 +185,9 @@ export default function TopicTest() {
           )}
         </div>
       ) : (
-        /* RESULT VIEW */
         <div style={{ textAlign: "center", padding: "50px", background: "#fff", borderRadius: "24px" }}>
           <div style={{ fontSize: "60px", marginBottom: "20px" }}>{score >= 50 ? "🎉" : "📚"}</div>
           <h1 style={{ fontSize: "40px", color: "#1e293b" }}>{score}%</h1>
-          <p style={{ color: "#64748b", fontSize: "18px", marginBottom: "30px" }}>
-            {score >= 90 ? "Excellent! You've been promoted to the next level!" : "Good effort! Keep practicing to level up."}
-          </p>
           <button 
             onClick={() => navigate("/student/dashboard")}
             style={{ padding: "15px 40px", borderRadius: "12px", background: "#065f46", color: "white", border: "none", fontWeight: "bold", cursor: "pointer" }}
@@ -183,6 +201,15 @@ export default function TopicTest() {
 }
 
 const styles = {
+  audioIconBtn: {
+    background: "#f1f5f9",
+    border: "none",
+    borderRadius: "12px",
+    padding: "10px 15px",
+    fontSize: "20px",
+    cursor: "pointer",
+    boxShadow: "0 2px 5px rgba(0,0,0,0.1)"
+  },
   navBtn: (ready) => ({
     padding: "16px 35px",
     background: ready ? "#065f46" : "#cbd5e1",
@@ -190,8 +217,7 @@ const styles = {
     border: "none",
     borderRadius: "12px",
     fontWeight: "800",
-    cursor: ready ? "pointer" : "not-allowed",
-    transition: "all 0.3s"
+    cursor: ready ? "pointer" : "not-allowed"
   }),
   submitBtn: (ready) => ({
     padding: "16px 35px",
@@ -200,7 +226,6 @@ const styles = {
     border: "none",
     borderRadius: "12px",
     fontWeight: "800",
-    cursor: ready ? "pointer" : "not-allowed",
-    boxShadow: ready ? "0 4px 15px rgba(16, 185, 129, 0.3)" : "none"
+    cursor: ready ? "pointer" : "not-allowed"
   })
 };

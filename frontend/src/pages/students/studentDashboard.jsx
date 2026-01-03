@@ -6,28 +6,17 @@ import Lessons from "./Lessons";
 import StudentProgress from "./StudentProgress";
 import PlacementTest from "./PlacementTest";
 
-// Translation Dictionary for NGO kids (English & Hindi)
 const translations = {
   en: {
-    welcome: "Welcome back",
-    logout: "Logout",
-    doubtSolver: "AI DOUBT SOLVER",
-    askDoubt: "Ask a doubt...",
-    modeLearning: "Learning Path",
-    modeAssessment: "Initial Assessment",
-    maths: "Mathematics",
-    science: "Science",
+    welcome: "Welcome back", logout: "Logout", doubtSolver: "AI DOUBT SOLVER",
+    askDoubt: "Ask a doubt...", modeLearning: "Learning Path",
+    modeAssessment: "Initial Assessment", maths: "Mathematics", science: "Science",
     badges: { starter: "Starter", achiever: "Achiever", master: "Master" }
   },
   hi: {
-    welcome: "सुस्वागतम",
-    logout: "लॉगआउट",
-    doubtSolver: "एआई शंका समाधान",
-    askDoubt: "अपनी शंका पूछें...",
-    modeLearning: "सीखने का मार्ग",
-    modeAssessment: "प्रारंभिक मूल्यांकन",
-    maths: "गणित",
-    science: "विज्ञान",
+    welcome: "सुस्वागतम", logout: "लॉगआउट", doubtSolver: "एआई शंका समाधान",
+    askDoubt: "अपनी शंका पूछें...", modeLearning: "सीखने का मार्ग",
+    modeAssessment: "प्रारंभिक मूल्यांकन", maths: "गणित", science: "विज्ञान",
     badges: { starter: "शुरुआत", achiever: "सफल", master: "महारत" }
   }
 };
@@ -37,29 +26,23 @@ export default function StudentDashboard() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [lang, setLang] = useState("en"); 
-  const [activeWatchProgress, setActiveWatchProgress] = useState(0); // Tracks real-time video %
+  const [activeWatchProgress, setActiveWatchProgress] = useState(0); 
   const messagesEndRef = useRef(null);
   const navigate = useNavigate();
-
   const t = translations[lang];
 
-  // Branding Colors
   const colors = {
-    primaryDeep: "#065f46", // Dark Emerald Green
-    accentGreen: "#10b981", // Brand Green
-    pastelBg: "#f0fdf4",    // Pastel Green Background
-    darkSlate: "#0f172a"    // Chatbot Header
+    primaryDeep: "#065f46",
+    pastelBg: "#f0fdf4",
+    darkSlate: "#0f172a"
   };
 
   const loadLatestData = () => {
     const name = localStorage.getItem("loggedInStudent");
     const students = JSON.parse(localStorage.getItem("students")) || [];
     const loggedIn = students.find((s) => s.name === name);
-    if (loggedIn) {
-      setStudent({ ...loggedIn });
-    } else {
-      navigate("/");
-    }
+    if (loggedIn) setStudent({ ...loggedIn });
+    else navigate("/");
   };
 
   useEffect(() => {
@@ -77,26 +60,13 @@ export default function StudentDashboard() {
     navigate("/");
   };
 
-  const getBadges = () => {
-    if (!student) return [];
-    const count = student.completedLessons?.length || 0;
-    const badges = [];
-    if (count >= 1) badges.push({ tag: "🌱", label: t.badges.starter, color: "#d1fae5" });
-    if (count >= 3) badges.push({ tag: "🔥", label: t.badges.achiever, color: "#fef3c7" });
-    if (count >= 5) badges.push({ tag: "🏆", label: t.badges.master, color: "#e0e7ff" });
-    return badges;
-  };
-
   const sendMessage = async () => {
     if (!input.trim()) return;
     const userText = input;
     setMessages((prev) => [...prev, { role: "user", content: userText }]);
     setInput("");
     try {
-      const res = await axios.post("http://127.0.0.1:5000/chat", {
-        message: userText,
-        source: "student_dashboard",
-      });
+      const res = await axios.post("http://127.0.0.1:5000/chat", { message: userText, source: "student_dashboard" });
       setMessages((prev) => [...prev, { role: "bot", content: res.data.reply }]);
     } catch (err) {
       setMessages((prev) => [...prev, { role: "bot", content: lang === 'en' ? "⚠️ Chatbot unavailable." : "⚠️ चैटबॉट अनुपलब्ध है।" }]);
@@ -114,7 +84,7 @@ export default function StudentDashboard() {
       return s;
     });
     localStorage.setItem("students", JSON.stringify(updatedStudents));
-    setActiveWatchProgress(0); // Reset live progress after completion
+    setActiveWatchProgress(0);
     loadLatestData(); 
     navigate(`/student/test/${lessonId}`, { state: { subject } });
   };
@@ -122,161 +92,93 @@ export default function StudentDashboard() {
   if (!student) return null;
 
   const formatBotMessage = (text) => {
-    return text
-      // Headings
-      .replace(/📌 ANSWER/g, "<h3>📌 Answer</h3>")
+    return text.replace(/📌 ANSWER/g, "<h3>📌 Answer</h3>")
       .replace(/📖 EXPLANATION/g, "<h3>📖 Explanation</h3>")
       .replace(/💡 EXAMPLE/g, "<h3>💡 Example</h3>")
-
-      // Horizontal lines
       .replace(/-{3,}/g, "<hr />")
-
-      // Numbered steps
       .replace(/(\d+\.)/g, "<br/><strong>$1</strong>")
-
-      // New lines
       .replace(/\n/g, "<br/>");
-  };  
+  };
 
   return (
     <div style={{ backgroundColor: colors.pastelBg, minHeight: "100vh", padding: "20px" }}>
-      <div style={{ maxWidth: "1350px", margin: "0 auto", fontFamily: "'Segoe UI', Roboto, sans-serif" }}>
+      <div style={{ maxWidth: "1400px", margin: "0 auto", fontFamily: "sans-serif" }}>
         
-        {/* NAVIGATION BAR */}
-        <nav style={{ 
-          display: "flex", 
-          justifyContent: "space-between", 
-          alignItems: "center", 
-          background: "#fff", 
-          padding: "12px 25px", 
-          borderRadius: "24px", 
-          marginBottom: "25px",
-          boxShadow: "0 10px 15px -3px rgba(0,0,0,0.04)",
-          border: "1px solid #eef2f3"
-        }}>
+        {/* TOP NAV */}
+        <nav style={styles.nav}>
           <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-            <div style={{ fontSize: "26px", fontWeight: "900", color: colors.primaryDeep, letterSpacing: "-1px" }}>EduLift</div>
-            <div style={{ width: "1px", height: "25px", background: "#e2e8f0" }}></div>
-            <div style={{ fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", fontSize: "11px", letterSpacing: "1px" }}>
-                {student.placementDone ? t.modeLearning : t.modeAssessment}
-            </div>
+            <div style={{ fontSize: "24px", fontWeight: "900", color: colors.primaryDeep }}>EduLift</div>
+            <div style={styles.badge}>{student.placementDone ? t.modeLearning : t.modeAssessment}</div>
           </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-            {/* Language Switcher */}
-            <div style={{ display: "flex", background: "#f1f5f9", padding: "4px", borderRadius: "12px" }}>
-              <button onClick={() => setLang("en")} style={{ padding: "8px 16px", border: "none", borderRadius: "10px", cursor: "pointer", fontSize: "12px", fontWeight: "800", background: lang === "en" ? colors.primaryDeep : "transparent", color: lang === "en" ? "#fff" : "#64748b", transition: "0.3s" }}>EN</button>
-              <button onClick={() => setLang("hi")} style={{ padding: "8px 16px", border: "none", borderRadius: "10px", cursor: "pointer", fontSize: "12px", fontWeight: "800", background: lang === "hi" ? colors.primaryDeep : "transparent", color: lang === "hi" ? "#fff" : "#64748b", transition: "0.3s" }}>हिन्दी</button>
-            </div>
-            
-            <button 
-              onClick={handleLogout}
-              style={{ padding: "10px 20px", background: "#fee2e2", color: "#dc2626", border: "none", borderRadius: "12px", fontWeight: "bold", cursor: "pointer", fontSize: "13px" }}
-            >
-              {t.logout} 🚪
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button onClick={() => setLang(lang === 'en' ? 'hi' : 'en')} style={styles.langBtn}>
+              {lang === 'en' ? "हिन्दी" : "English"}
             </button>
+            <button onClick={handleLogout} style={styles.logoutBtn}>{t.logout} 🚪</button>
           </div>
         </nav>
-
-        {/* HEADER SECTION */}
-        <header style={{ marginBottom: "30px", paddingLeft: "10px" }}>
-            <h2 style={{ margin: 0, color: colors.darkSlate, fontSize: "30px", fontWeight: "800" }}>{t.welcome}, {student.name} 👋</h2>
-            <div style={{ display: "flex", gap: "10px", marginTop: "12px" }}>
-              {getBadges().map((badge, i) => (
-                <span key={i} style={{ background: badge.color, padding: "6px 16px", borderRadius: "30px", fontSize: "12px", fontWeight: "800", border: "1px solid rgba(0,0,0,0.03)", boxShadow: "0 2px 5px rgba(0,0,0,0.05)" }}>
-                  {badge.tag} {badge.label}
-                </span>
-              ))}
-            </div>
-        </header>
 
         {!student.placementDone ? (
           <PlacementTest student={student} setStudent={setStudent} />
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 420px", gap: "30px", alignItems: "start" }}>
-            
-            {/* Left Column: Video Lessons */}
-            <div style={{ animation: "fadeIn 0.5s ease" }}>
-              <Lessons 
-                student={student} 
-                onComplete={handleCompleteLesson} 
-                lang={lang} 
-                t={t} 
-                setWatchProgress={setActiveWatchProgress} // Pass setter to update progress bar live
-                primaryColor={colors.primaryDeep} 
-              />
-            </div>
+          <>
+            {/* 1. PROGRESS BAR AT TOP */}
+            <StudentProgress 
+              student={student} lang={lang} t={t} 
+              currentLessonProgress={activeWatchProgress} 
+            />
 
-            {/* Right Column: Progress Dashboard & AI Chat */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "25px" }}>
+            {/* 2. MAIN CONTENT GRID */}
+            <div style={styles.dashboardGrid}>
               
-              <StudentProgress 
-                student={student} 
-                lang={lang} 
-                t={t} 
-                currentLessonProgress={activeWatchProgress} 
-              />
-              
-              {/* CHATBOT BOX */}
-              <div style={{ borderRadius: "28px", background: "#fff", height: "580px", display: "flex", flexDirection: "column", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.05)", overflow: "hidden", border: "1px solid #eef2f3" }}>
-                <div style={{ 
-                  padding: "20px 24px", 
-                  background: `linear-gradient(135deg, ${colors.primaryDeep} 0%, #064e3b 100%)`, 
-                  color: "white", 
-                  fontWeight: "bold", 
-                  fontSize: "14px", 
-                  display: "flex", 
-                  alignItems: "center", 
-                  gap: "10px" 
-                }}>
-                  <span style={{ fontSize: "18px" }}>🤖</span> {t.doubtSolver}
-                </div>
-                
-                <div style={{ flex: 1, overflowY: "auto", padding: "20px", background: "#fafafa" }}>
+              {/* LESSONS COLUMN */}
+              <div style={styles.card}>
+                <Lessons 
+                  student={student} onComplete={handleCompleteLesson} 
+                  lang={lang} t={t} setWatchProgress={setActiveWatchProgress} 
+                  primaryColor={colors.primaryDeep} 
+                />
+              </div>
+
+              {/* CHATBOT COLUMN */}
+              <div style={styles.chatbotContainer}>
+                <div style={styles.chatHeader}>🤖 {t.doubtSolver}</div>
+                <div style={styles.chatBody}>
                   {messages.map((msg, i) => (
-                    <div key={i} style={{ marginBottom: "16px", textAlign: msg.role === "user" ? "right" : "left" }}>
-                      <div style={{ 
-                        display: "inline-block", 
-                        padding: "12px 18px", 
-                        borderRadius: msg.role === "user" ? "20px 20px 4px 20px" : "20px 20px 20px 4px", 
-                        background: msg.role === "user" ? colors.primaryDeep : "#fff", 
-                        color: msg.role === "user" ? "#fff" : "#1e293b", 
-                        maxWidth: "85%", fontSize: "14px", fontWeight: "500", boxShadow: "0 2px 8px rgba(0,0,0,0.02)", border: msg.role === "bot" ? "1px solid #e2e8f0" : "none"
-                      }}>
-                        <div
-                          dangerouslySetInnerHTML={{
-                            __html:
-                              msg.role === "bot"
-                                ? formatBotMessage(msg.content)
-                                : msg.content
-                          }}
-                        />
+                    <div key={i} style={{ textAlign: msg.role === "user" ? "right" : "left", marginBottom: "15px" }}>
+                      <div style={{...styles.bubble, background: msg.role === "user" ? colors.primaryDeep : "#f1f5f9", color: msg.role === "user" ? "#fff" : "#334155"}}>
+                        <div dangerouslySetInnerHTML={{ __html: msg.role === "bot" ? formatBotMessage(msg.content) : msg.content }} />
                       </div>
                     </div>
                   ))}
                   <div ref={messagesEndRef} />
                 </div>
-
-                <div style={{ padding: "18px", background: "#fff", display: "flex", gap: "10px", borderTop: "1px solid #f1f5f9" }}>
-                  <input 
-                    style={{ flex: 1, padding: "14px", borderRadius: "14px", border: "2px solid #f1f5f9", outline: "none", fontSize: "14px" }} 
-                    onFocus={(e) => e.target.style.borderColor = colors.primaryDeep}
-                    onBlur={(e) => e.target.style.borderColor = "#f1f5f9"}
-                    value={input} 
-                    onChange={(e) => setInput(e.target.value)} 
-                    onKeyDown={(e) => e.key === "Enter" && sendMessage()} 
-                    placeholder={t.askDoubt} 
-                  />
-                  <button onClick={sendMessage} style={{ background: colors.primaryDeep, color: "white", border: "none", borderRadius: "14px", width: "50px", cursor: "pointer", transition: "0.2s" }} onMouseOver={(e) => e.currentTarget.style.opacity = "0.9"} onMouseOut={(e) => e.currentTarget.style.opacity = "1"}>
-                    ➤
-                  </button>
+                <div style={styles.chatInputRow}>
+                  <input style={styles.input} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendMessage()} placeholder={t.askDoubt} />
+                  <button onClick={sendMessage} style={styles.sendBtn}>➤</button>
                 </div>
               </div>
 
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>
   );
 }
+
+const styles = {
+  nav: { display: "flex", justifyContent: "space-between", background: "#fff", padding: "15px 30px", borderRadius: "20px", marginBottom: "20px", alignItems: "center", boxShadow: "0 2px 10px rgba(0,0,0,0.05)" },
+  badge: { background: "#f1f5f9", padding: "5px 12px", borderRadius: "10px", fontSize: "11px", fontWeight: "bold", color: "#64748b" },
+  langBtn: { border: "1px solid #ddd", background: "#fff", padding: "8px 15px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" },
+  logoutBtn: { background: "#fee2e2", color: "#dc2626", border: "none", padding: "8px 15px", borderRadius: "10px", fontWeight: "bold", cursor: "pointer" },
+  dashboardGrid: { display: "grid", gridTemplateColumns: "1fr 450px", gap: "25px", marginTop: "25px", height: "700px" },
+  card: { background: "#fff", borderRadius: "24px", overflowY: "auto", boxShadow: "0 4px 20px rgba(0,0,0,0.05)", padding: "20px" },
+  chatbotContainer: { background: "#fff", borderRadius: "24px", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.05)" },
+  chatHeader: { background: "#065f46", color: "#fff", padding: "20px", fontWeight: "bold" },
+  chatBody: { flex: 1, overflowY: "auto", padding: "20px", background: "#fcfcfc" },
+  chatInputRow: { padding: "15px", borderTop: "1px solid #eee", display: "flex", gap: "10px" },
+  input: { flex: 1, padding: "12px", borderRadius: "12px", border: "1px solid #ddd", outline: "none" },
+  sendBtn: { background: "#065f46", color: "#fff", border: "none", width: "50px", borderRadius: "12px", cursor: "pointer" },
+  bubble: { display: "inline-block", padding: "12px 16px", borderRadius: "15px", maxWidth: "85%", fontSize: "14px", lineHeight: "1.5" }
+};
