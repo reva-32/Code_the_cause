@@ -5,33 +5,46 @@ export default function PlacementTest({ student, setStudent }) {
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
 
+  // 1. HELPER: Check if student is blind or visually impaired
+  const isBlindStudent =
+    student?.disability?.toLowerCase().includes("blind") ||
+    student?.disability?.toLowerCase().includes("visual");
+
   const speak = (text) => {
+    // Only execute speech if the student is blind
+    if (!isBlindStudent) return;
+
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 0.9;
     window.speechSynthesis.speak(utterance);
   };
 
-  // AUTOMATIC WELCOME AUDIO
+  // AUTOMATIC WELCOME AUDIO (Only for blind students)
   useEffect(() => {
-    speak(
-      "Welcome to your first test. There are questions below. " +
-      "Above each question's options, there is a button on the left that says Read Question. " +
-      "Click it to hear the question out loud."
-    );
-  }, []);
+    if (isBlindStudent) {
+      speak(
+        "Welcome to your first test. There are questions below. " +
+        "Above each question's options, there is a button on the left that says Read Question. " +
+        "Click it to hear the question out loud."
+      );
+    }
+  }, [isBlindStudent]); // Runs on load if student is identified as blind
 
   const handleSubmit = () => {
     const updatedStudent = { ...student, placementDone: true, levels: {} };
     const correctCounts = {};
+
     BASELINE_TEST.forEach((q) => {
       if (!correctCounts[q.subject]) correctCounts[q.subject] = 0;
       if (answers[q.id] === q.answer) correctCounts[q.subject]++;
     });
+
     Object.keys(correctCounts).forEach((subject) => {
       const total = BASELINE_TEST.filter((q) => q.subject === subject).length;
       updatedStudent.levels[subject] = correctCounts[subject] === total ? "Class 2" : "Class 1";
     });
+
     const students = JSON.parse(localStorage.getItem("students")) || [];
     const updatedStudents = students.map((s) => s.name === student.name ? updatedStudent : s);
     localStorage.setItem("students", JSON.stringify(updatedStudents));
@@ -39,29 +52,47 @@ export default function PlacementTest({ student, setStudent }) {
     setSubmitted(true);
   };
 
-  if (submitted) return <div style={{textAlign: 'center', padding: '50px'}}><h2>Test Done! Check your Dashboard.</h2></div>;
+  if (submitted) return <div style={{ textAlign: 'center', padding: '50px' }}><h2>Test Done! Check your Dashboard.</h2></div>;
 
   return (
     <div style={{ maxWidth: "800px", margin: "0 auto", background: "#fff", padding: "40px", borderRadius: "24px" }}>
       <h2 style={{ textAlign: "center", color: "#065f46" }}>Placement Test 📝</h2>
+
       {BASELINE_TEST.map((q, index) => (
         <div key={q.id} style={{ marginBottom: "40px", borderBottom: "1px solid #eee", paddingBottom: "20px" }}>
           <p style={{ fontWeight: "bold", fontSize: "18px" }}>{index + 1}. {q.question}</p>
-          
-          <button onClick={() => speak(`${q.question}. Options are: ${q.options.join(", ")}`)} style={testStyles.audioBtn}>
-            🔊 Read Question (Left)
-          </button>
+
+          {/* 2. CONDITIONAL BUTTON: Only show audio button for blind students */}
+          {isBlindStudent && (
+            <button
+              onClick={() => speak(`${q.question}. Options are: ${q.options.join(", ")}`)}
+              style={testStyles.audioBtn}
+            >
+              🔊 Read Question (Left)
+            </button>
+          )}
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
             {q.options.map((opt) => (
-              <label key={opt} style={{...testStyles.option, borderColor: answers[q.id] === opt ? "#10b981" : "#eee"}}>
-                <input type="radio" name={q.id} value={opt} onChange={() => setAnswers({...answers, [q.id]: opt})} style={{marginRight: '10px'}} />
+              <label key={opt} style={{ ...testStyles.option, borderColor: answers[q.id] === opt ? "#10b981" : "#eee" }}>
+                <input
+                  type="radio"
+                  name={q.id}
+                  value={opt}
+                  onChange={() => {
+                    setAnswers({ ...answers, [q.id]: opt });
+                    // Optional: Speak the selected option for confirmation
+                    if (isBlindStudent) speak(`Selected ${opt}`);
+                  }}
+                  style={{ marginRight: '10px' }}
+                />
                 {opt}
               </label>
             ))}
           </div>
         </div>
       ))}
+
       <button onClick={handleSubmit} disabled={Object.keys(answers).length < BASELINE_TEST.length} style={testStyles.submitBtn}>
         Finish Test 🚀
       </button>

@@ -15,12 +15,13 @@ export default function TopicTest() {
   const [score, setScore] = useState(0);
   const [subject, setSubject] = useState("");
 
+  // Existing disability checks
   const isBlind = student?.disability === "blind";
   const isADHD = student?.disability === "adhd";
 
-  // Helper to speak text
+  // MODIFIED: Added check to prevent speech for non-blind students
   const speak = (text) => {
-    if (!window.speechSynthesis) return;
+    if (!window.speechSynthesis || !isBlind) return; // Prevent speech if not blind
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 0.9;
@@ -35,23 +36,24 @@ export default function TopicTest() {
     if (!s) return navigate("/");
 
     const sub = location.state?.subject || (lessonId.includes("maths") ? "maths" : "science");
-    const test = TOPIC_TEST.find(t => 
-      t.subject === sub && 
+    const test = TOPIC_TEST.find(t =>
+      t.subject === sub &&
       t.level.replace(/\s/g, "").toLowerCase() === s.levels[sub].replace(/\s/g, "").toLowerCase()
     );
 
     setStudent(s);
     setSubject(sub);
     setQuestions(test?.questions || []);
-    
-    // INITIAL GUIDANCE AUDIO
-    const welcomeMsg = `Topic Test for ${sub} started. To hear the question and options, click the audio button located on the left side of each question.`;
-    speak(welcomeMsg);
-  }, [lessonId]);
+
+    // INITIAL GUIDANCE AUDIO - This now only speaks if isBlind is true due to the check in speak()
+    if (s.disability === "blind") {
+      const welcomeMsg = `Topic Test for ${sub} started. To hear the question and options, click the audio button located on the left side of each question.`;
+      speak(welcomeMsg);
+    }
+  }, [lessonId, isBlind]); // Added isBlind to dependency array
 
   const q = questions[currentQuestionIndex];
 
-  // Function for the specific Audio Button next to questions
   const handleReadQuestion = () => {
     const optionsText = q.options.join(", ");
     speak(`Question: ${q.question}. The options are: ${optionsText}`);
@@ -65,7 +67,6 @@ export default function TopicTest() {
   const nextQuestion = () => {
     const nextIdx = currentQuestionIndex + 1;
     setCurrentQuestionIndex(nextIdx);
-    // Brief notification for next question
     speak(`Moving to Question ${nextIdx + 1}`);
   };
 
@@ -73,14 +74,13 @@ export default function TopicTest() {
     const result = evaluateTopicTest(questions, answers);
     setScore(result);
     setSubmitted(true);
-    
-    // Update progress in local storage
+
     const students = JSON.parse(localStorage.getItem("students")) || [];
     const updated = students.map(s => {
-      if(s.name === student.name) {
+      if (s.name === student.name) {
         const completed = s.completedLessons || [];
-        if(!completed.includes(lessonId)) completed.push(lessonId);
-        return {...s, completedLessons: completed};
+        if (!completed.includes(lessonId)) completed.push(lessonId);
+        return { ...s, completedLessons: completed };
       }
       return s;
     });
@@ -93,24 +93,23 @@ export default function TopicTest() {
   return (
     <div style={{ maxWidth: "800px", margin: "40px auto", padding: "20px", fontFamily: "'Inter', sans-serif" }}>
       {!submitted ? (
-        <div style={{ 
-          background: "#fff", 
-          padding: isADHD ? "40px" : "30px", 
+        <div style={{
+          background: "#fff",
+          padding: isADHD ? "40px" : "30px",
           borderRadius: "24px",
           boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
           border: isADHD ? "3px solid #065f46" : "1px solid #f1f5f9"
         }}>
-          
-          {/* PROGRESS HEADER */}
+
           <div style={{ marginBottom: "30px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", fontWeight: "bold", color: "#64748b", marginBottom: "10px" }}>
               <span>{subject.toUpperCase()} QUIZ</span>
               <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
             </div>
             <div style={{ height: "8px", background: "#f1f5f9", borderRadius: "10px", overflow: "hidden" }}>
-              <div style={{ 
-                width: `${((currentQuestionIndex + 1) / questions.length) * 100}%`, 
-                height: "100%", background: "#10b981", transition: "width 0.4s ease" 
+              <div style={{
+                width: `${((currentQuestionIndex + 1) / questions.length) * 100}%`,
+                height: "100%", background: "#10b981", transition: "width 0.4s ease"
               }} />
             </div>
           </div>
@@ -118,14 +117,16 @@ export default function TopicTest() {
           {q && (
             <div>
               <div style={{ display: "flex", alignItems: "flex-start", gap: "15px", marginBottom: "25px" }}>
-                {/* THE LEFT AUDIO BUTTON */}
-                <button 
-                  onClick={handleReadQuestion}
-                  title="Read Question Aloud"
-                  style={styles.audioIconBtn}
-                >
-                  🔊
-                </button>
+                {/* MODIFIED: THE LEFT AUDIO BUTTON - Only visible for blind students */}
+                {isBlind && (
+                  <button
+                    onClick={handleReadQuestion}
+                    title="Read Question Aloud"
+                    style={styles.audioIconBtn}
+                  >
+                    🔊
+                  </button>
+                )}
                 <h2 style={{ fontSize: isADHD ? "26px" : "22px", color: "#1e293b", margin: 0, lineHeight: "1.4" }}>
                   {q.question}
                 </h2>
@@ -152,9 +153,9 @@ export default function TopicTest() {
                         gap: "15px"
                       }}
                     >
-                      <div style={{ 
-                        width: "20px", height: "20px", borderRadius: "50%", 
-                        border: isSelected ? "6px solid #10b981" : "2px solid #cbd5e1" 
+                      <div style={{
+                        width: "20px", height: "20px", borderRadius: "50%",
+                        border: isSelected ? "6px solid #10b981" : "2px solid #cbd5e1"
                       }} />
                       {opt}
                     </button>
@@ -188,7 +189,7 @@ export default function TopicTest() {
         <div style={{ textAlign: "center", padding: "50px", background: "#fff", borderRadius: "24px" }}>
           <div style={{ fontSize: "60px", marginBottom: "20px" }}>{score >= 50 ? "🎉" : "📚"}</div>
           <h1 style={{ fontSize: "40px", color: "#1e293b" }}>{score}%</h1>
-          <button 
+          <button
             onClick={() => navigate("/student/dashboard")}
             style={{ padding: "15px 40px", borderRadius: "12px", background: "#065f46", color: "white", border: "none", fontWeight: "bold", cursor: "pointer" }}
           >

@@ -17,9 +17,16 @@ import StudentProgress from "./pages/students/StudentProgress";
 import TopicTest from "./pages/students/TopicTest";
 import Lessons from "./pages/students/Lessons";
 import StudentProgressPage from "./pages/guardian/StudentProgressPage";
+import StudentMedicalProfile from "./pages/guardian/StudentMedicalProfile";
+
+// 1. IMPORT YOUR NEW REGISTRATION PAGE
+import GuardianAddStudent from "./pages/guardian/addStudent";
+
+import MentalHealthForm from "./pages/students/mentalHealthForm";
 
 export default function App() {
-  // Route Guards
+  // ... (Keep your ProtectedStudent, ProtectedGuardian, ProtectedAdmin guards exactly as they are)
+
   const ProtectedStudent = ({ children }) => {
     const name = localStorage.getItem("loggedInStudent");
     if (!name) return <Navigate to="/student/login" />;
@@ -46,80 +53,33 @@ export default function App() {
 
         {/* ADMIN */}
         <Route path="/admin/login" element={<AdminLogin />} />
-        <Route
-          path="/admin/dashboard"
-          element={
-            <ProtectedAdmin>
-              <AdminDashboard />
-            </ProtectedAdmin>
-          }
-        />
+        <Route path="/admin/dashboard" element={<ProtectedAdmin><AdminDashboard /></ProtectedAdmin>} />
 
         {/* GUARDIAN */}
         <Route path="/guardian/login" element={<GuardianLogin />} />
         <Route path="/guardian/signup" element={<GuardianSignup />} />
+        <Route path="/guardian/dashboard" element={<ProtectedGuardian><GuardianDashboard /></ProtectedGuardian>} />
+
+        {/* 2. REGISTER THE NEW ADD STUDENT ROUTE HERE */}
         <Route
-          path="/guardian/dashboard"
+          path="/guardian/add-student"
           element={
             <ProtectedGuardian>
-              <GuardianDashboard />
+              <GuardianAddStudent />
             </ProtectedGuardian>
           }
         />
-        <Route
-          path="/guardian/student/:id"
-          element={
-            <ProtectedGuardian>
-              <StudentProgressPage />
-            </ProtectedGuardian>
-          }
-        />
-        {/* STUDENT */}
+        <Route path="/guardian/medical-profile/:studentName" element={<StudentMedicalProfile />} />
+        <Route path="/guardian/student/:id" element={<ProtectedGuardian><StudentProgressPage /></ProtectedGuardian>} />
+
+        {/* STUDENT ROUTES */}
         <Route path="/student/login" element={<StudentLogin />} />
-        <Route
-          path="/student/dashboard"
-          element={
-            <ProtectedStudent>
-              <StudentDashboard />
-            </ProtectedStudent>
-          }
-        />
-
-        <Route
-          path="/student/progress"
-          element={
-            <ProtectedStudent>
-              <StudentProgress />
-            </ProtectedStudent>
-          }
-        />
-
-        <Route
-          path="/student/lessons"
-          element={
-            <ProtectedStudent>
-              <Lessons />
-            </ProtectedStudent>
-          }
-        />
-
-        <Route
-          path="/student/topic-test"
-          element={
-            <ProtectedStudent>
-              <TopicTest />
-            </ProtectedStudent>
-          }
-        />
-
-        <Route
-          path="/student/test/:lessonId"
-          element={
-            <ProtectedStudent>
-              <TopicTest />
-            </ProtectedStudent>
-          }
-        />
+        <Route path="/student/mental-health" element={<ProtectedStudent><MentalHealthForm /></ProtectedStudent>} />
+        <Route path="/student/dashboard" element={<ProtectedStudent><StudentDashboard /></ProtectedStudent>} />
+        <Route path="/student/progress" element={<ProtectedStudent><StudentProgress /></ProtectedStudent>} />
+        <Route path="/student/lessons" element={<ProtectedStudent><Lessons /></ProtectedStudent>} />
+        <Route path="/student/topic-test" element={<ProtectedStudent><TopicTest /></ProtectedStudent>} />
+        <Route path="/student/test/:lessonId" element={<ProtectedStudent><TopicTest /></ProtectedStudent>} />
 
         {/* CATCH ALL */}
         <Route path="*" element={<Navigate to="/" />} />

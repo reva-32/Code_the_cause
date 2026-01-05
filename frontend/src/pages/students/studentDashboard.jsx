@@ -6,17 +6,22 @@ import Lessons from "./Lessons";
 import StudentProgress from "./StudentProgress";
 import PlacementTest from "./PlacementTest";
 
+// Import your health utility functions
+import { shouldShowMentalHealthCheck } from "../../utils/healthStorage";
+
 const translations = {
   en: {
     welcome: "Welcome back", logout: "Logout", doubtSolver: "AI DOUBT SOLVER",
     askDoubt: "Ask a doubt...", modeLearning: "Learning Path",
     modeAssessment: "Initial Assessment", maths: "Mathematics", science: "Science",
+    wellnessBtn: "🌿 Weekly Wellness Check",
     badges: { starter: "Starter", achiever: "Achiever", master: "Master" }
   },
   hi: {
     welcome: "सुस्वागतम", logout: "लॉगआउट", doubtSolver: "एआई शंका समाधान",
     askDoubt: "अपनी शंका पूछें...", modeLearning: "सीखने का मार्ग",
     modeAssessment: "प्रारंभिक मूल्यांकन", maths: "गणित", science: "विज्ञान",
+    wellnessBtn: "🌿 साप्ताहिक स्वास्थ्य जांच",
     badges: { starter: "शुरुआत", achiever: "सफल", master: "महारत" }
   }
 };
@@ -25,8 +30,9 @@ export default function StudentDashboard() {
   const [student, setStudent] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
-  const [lang, setLang] = useState("en"); 
-  const [activeWatchProgress, setActiveWatchProgress] = useState(0); 
+  const [lang, setLang] = useState("en");
+  const [activeWatchProgress, setActiveWatchProgress] = useState(0);
+  const [showWellnessBtn, setShowWellnessBtn] = useState(false); // New state for health button
   const messagesEndRef = useRef(null);
   const navigate = useNavigate();
   const t = translations[lang];
@@ -34,15 +40,22 @@ export default function StudentDashboard() {
   const colors = {
     primaryDeep: "#065f46",
     pastelBg: "#f0fdf4",
-    darkSlate: "#0f172a"
+    darkSlate: "#0f172a",
+    wellnessGold: "#f59e0b"
   };
 
   const loadLatestData = () => {
     const name = localStorage.getItem("loggedInStudent");
     const students = JSON.parse(localStorage.getItem("students")) || [];
     const loggedIn = students.find((s) => s.name === name);
-    if (loggedIn) setStudent({ ...loggedIn });
-    else navigate("/");
+
+    if (loggedIn) {
+      setStudent({ ...loggedIn });
+      // Check if health button should be visible
+      setShowWellnessBtn(shouldShowMentalHealthCheck(name));
+    } else {
+      navigate("/");
+    }
   };
 
   useEffect(() => {
@@ -85,7 +98,7 @@ export default function StudentDashboard() {
     });
     localStorage.setItem("students", JSON.stringify(updatedStudents));
     setActiveWatchProgress(0);
-    loadLatestData(); 
+    loadLatestData();
     navigate(`/student/test/${lessonId}`, { state: { subject } });
   };
 
@@ -103,13 +116,24 @@ export default function StudentDashboard() {
   return (
     <div style={{ backgroundColor: colors.pastelBg, minHeight: "100vh", padding: "20px" }}>
       <div style={{ maxWidth: "1400px", margin: "0 auto", fontFamily: "sans-serif" }}>
-        
+
         {/* TOP NAV */}
         <nav style={styles.nav}>
           <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
             <div style={{ fontSize: "24px", fontWeight: "900", color: colors.primaryDeep }}>EduLift</div>
             <div style={styles.badge}>{student.placementDone ? t.modeLearning : t.modeAssessment}</div>
+
+            {/* MENTAL HEALTH BUTTON - Visible only once a week */}
+            {showWellnessBtn && (
+              <button
+                onClick={() => navigate("/student/mental-health")}
+                style={styles.wellnessBtn}
+              >
+                {t.wellnessBtn}
+              </button>
+            )}
           </div>
+
           <div style={{ display: "flex", gap: "10px" }}>
             <button onClick={() => setLang(lang === 'en' ? 'hi' : 'en')} style={styles.langBtn}>
               {lang === 'en' ? "हिन्दी" : "English"}
@@ -122,31 +146,26 @@ export default function StudentDashboard() {
           <PlacementTest student={student} setStudent={setStudent} />
         ) : (
           <>
-            {/* 1. PROGRESS BAR AT TOP */}
-            <StudentProgress 
-              student={student} lang={lang} t={t} 
-              currentLessonProgress={activeWatchProgress} 
+            <StudentProgress
+              student={student} lang={lang} t={t}
+              currentLessonProgress={activeWatchProgress}
             />
 
-            {/* 2. MAIN CONTENT GRID */}
             <div style={styles.dashboardGrid}>
-              
-              {/* LESSONS COLUMN */}
               <div style={styles.card}>
-                <Lessons 
-                  student={student} onComplete={handleCompleteLesson} 
-                  lang={lang} t={t} setWatchProgress={setActiveWatchProgress} 
-                  primaryColor={colors.primaryDeep} 
+                <Lessons
+                  student={student} onComplete={handleCompleteLesson}
+                  lang={lang} t={t} setWatchProgress={setActiveWatchProgress}
+                  primaryColor={colors.primaryDeep}
                 />
               </div>
 
-              {/* CHATBOT COLUMN */}
               <div style={styles.chatbotContainer}>
                 <div style={styles.chatHeader}>🤖 {t.doubtSolver}</div>
                 <div style={styles.chatBody}>
                   {messages.map((msg, i) => (
                     <div key={i} style={{ textAlign: msg.role === "user" ? "right" : "left", marginBottom: "15px" }}>
-                      <div style={{...styles.bubble, background: msg.role === "user" ? colors.primaryDeep : "#f1f5f9", color: msg.role === "user" ? "#fff" : "#334155"}}>
+                      <div style={{ ...styles.bubble, background: msg.role === "user" ? colors.primaryDeep : "#f1f5f9", color: msg.role === "user" ? "#fff" : "#334155" }}>
                         <div dangerouslySetInnerHTML={{ __html: msg.role === "bot" ? formatBotMessage(msg.content) : msg.content }} />
                       </div>
                     </div>
@@ -158,7 +177,6 @@ export default function StudentDashboard() {
                   <button onClick={sendMessage} style={styles.sendBtn}>➤</button>
                 </div>
               </div>
-
             </div>
           </>
         )}
@@ -170,6 +188,7 @@ export default function StudentDashboard() {
 const styles = {
   nav: { display: "flex", justifyContent: "space-between", background: "#fff", padding: "15px 30px", borderRadius: "20px", marginBottom: "20px", alignItems: "center", boxShadow: "0 2px 10px rgba(0,0,0,0.05)" },
   badge: { background: "#f1f5f9", padding: "5px 12px", borderRadius: "10px", fontSize: "11px", fontWeight: "bold", color: "#64748b" },
+  wellnessBtn: { background: "#f59e0b", color: "#fff", border: "none", padding: "8px 15px", borderRadius: "10px", fontWeight: "bold", cursor: "pointer", fontSize: "12px", marginLeft: "10px", boxShadow: "0 2px 5px rgba(245,158,11,0.3)" },
   langBtn: { border: "1px solid #ddd", background: "#fff", padding: "8px 15px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" },
   logoutBtn: { background: "#fee2e2", color: "#dc2626", border: "none", padding: "8px 15px", borderRadius: "10px", fontWeight: "bold", cursor: "pointer" },
   dashboardGrid: { display: "grid", gridTemplateColumns: "1fr 450px", gap: "25px", marginTop: "25px", height: "700px" },
