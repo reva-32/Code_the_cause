@@ -18,6 +18,7 @@ import TopicTest from "./pages/students/TopicTest";
 import Lessons from "./pages/students/Lessons";
 import StudentProgressPage from "./pages/guardian/StudentProgressPage";
 import StudentMedicalProfile from "./pages/guardian/StudentMedicalProfile";
+import Instructions from "./pages/guardian/Instructions";
 
 // 1. IMPORT YOUR NEW REGISTRATION PAGE
 import GuardianAddStudent from "./pages/guardian/addStudent";
@@ -59,6 +60,7 @@ export default function App() {
         <Route path="/guardian/login" element={<GuardianLogin />} />
         <Route path="/guardian/signup" element={<GuardianSignup />} />
         <Route path="/guardian/dashboard" element={<ProtectedGuardian><GuardianDashboard /></ProtectedGuardian>} />
+        <Route path="/guardian/instructions" element={<Instructions />} />
 
         {/* 2. REGISTER THE NEW ADD STUDENT ROUTE HERE */}
         <Route

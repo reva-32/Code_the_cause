@@ -15,7 +15,6 @@ export default function AddStudent() {
     }
   });
 
-  /* ================= SILENT AGE CALCULATION ================= */
   const calculateAge = (dobString) => {
     if (!dobString) return 0;
     const birthDate = new Date(dobString);
@@ -56,21 +55,22 @@ export default function AddStudent() {
     };
 
     localStorage.setItem("students", JSON.stringify([...existingStudents, newStudent]));
+    
+    // Using a brief delay ensures LocalStorage is written before navigation
+    // and we navigate to the exact path shown in your browser address bar
     alert("Profile Created Successfully");
-    navigate("/guardian-dashboard");
+    navigate("/guardian/dashboard"); 
   };
 
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        {/* UPDATED HEADER SECTION */}
         <header style={styles.header}>
           <h1 style={styles.title}>Student Registration</h1>
           <p style={styles.subtitle}>Fill in details to create a new medical & academic profile</p>
         </header>
 
         <form onSubmit={handleSubmit} style={styles.form}>
-          {/* IDENTITY */}
           <div style={styles.inputGroup}>
             <label style={styles.label}>Full Name</label>
             <input
@@ -92,7 +92,6 @@ export default function AddStudent() {
             />
           </div>
 
-          {/* VACCINES WITH VISIBLE TICKS */}
           <div style={styles.inputGroup}>
             <label style={styles.label}>Immunization History</label>
             <p style={styles.tinyLabel}>Select vaccines already administered:</p>
@@ -115,7 +114,6 @@ export default function AddStudent() {
             </div>
           </div>
 
-          {/* DISABILITY CATEGORIES */}
           <div style={styles.inputGroup}>
             <label style={styles.label}>Disability Category</label>
             <select
@@ -152,20 +150,10 @@ export default function AddStudent() {
 
 const styles = {
   container: { minHeight: "100vh", backgroundColor: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", fontFamily: "'Inter', sans-serif" },
-
-  // Updated card to handle header overflow
   card: { background: "#fff", maxWidth: "550px", width: "100%", borderRadius: "20px", boxShadow: "0 10px 25px rgba(0,0,0,0.05)", border: "1px solid #e2e8f0", overflow: "hidden" },
-
-  // NEW COLORED HEADING BACKGROUND
-  header: {
-    background: "linear-gradient(135deg, #065f46 0%, #047857 100%)",
-    padding: "30px 40px",
-    textAlign: "left"
-  },
-
+  header: { background: "linear-gradient(135deg, #065f46 0%, #047857 100%)", padding: "30px 40px", textAlign: "left" },
   title: { fontSize: "28px", fontWeight: "800", color: "#ffffff", margin: 0 },
   subtitle: { color: "#d1fae5", fontSize: "14px", marginTop: "5px", opacity: 0.9 },
-
   form: { display: "flex", flexDirection: "column", gap: "22px", padding: "40px" },
   inputGroup: { display: "flex", flexDirection: "column", gap: "8px" },
   label: { fontSize: "12px", fontWeight: "700", color: "#475569", textTransform: "uppercase", letterSpacing: "0.5px" },

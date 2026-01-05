@@ -10,8 +10,12 @@ export default function Lessons({
   lang
 }) {
   const [subject, setSubject] = useState("maths");
-  const isBlind = student.disability === "blind";
-  const isADHD = student.disability === "adhd";
+  
+  // Updated logic to match the "visually impaired" label seen in your dashboard screenshots
+  const isBlind = student.disability?.toLowerCase() === "blind" || 
+                  student.disability?.toLowerCase() === "visually impaired";
+                  
+  const isADHD = student.disability?.toLowerCase() === "adhd";
 
   const handleManualComplete = (lessonId) => {
     setWatchProgress(100);
@@ -19,7 +23,7 @@ export default function Lessons({
   };
 
   const eligibleLessons = lessons.filter((l) => {
-    const studentLevel = (student.levels[subject] || "")
+    const studentLevel = (student.levels?.[subject] || "")
       .replace(/\s/g, "")
       .toLowerCase();
     const lessonLevel = (l.class || "")
@@ -93,7 +97,7 @@ export default function Lessons({
                   {!isLocked && (
                     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                       
-                      {/* MEDIA SECTION */}
+                      {/* MEDIA SECTION - Swaps to Audio for Visual Impairments */}
                       {isBlind ? (
                         <audio
                           controls
@@ -124,7 +128,7 @@ export default function Lessons({
                         </div>
                       )}
 
-                      {/* THE READY BUTTON (Visible to everyone) */}
+                      {/* THE READY BUTTON */}
                       <button
                         onClick={() => handleManualComplete(lesson.id)}
                         style={{
@@ -140,7 +144,6 @@ export default function Lessons({
                           transition: "transform 0.2s"
                         }}
                       >
-                        {/* Improved Logic: Show "READY!" if translation exists, else a clear action string */}
                         {lang === 'hi' 
                           ? (t.readyForTest || "परीक्षा के लिए तैयार!") 
                           : (t.readyForTest || "I'M READY FOR THE TEST!")}
