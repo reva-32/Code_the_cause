@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { getStudentAlertStatus } from "../../utils/healthStorage";
 
@@ -20,31 +20,85 @@ export default function GuardianDashboard() {
     setShowWelcome(false);
   };
 
-  // Data States
+  /* --- PRECISE VACCINE CALCULATION FROM DOB --- */
+  // ... inside GuardianDashboard component
+
+  /* --- UPDATED: VACCINE CALCULATION WITH COMPLETION CHECK --- */
+  const getVaccineAlert = (student) => {
+    if (!student || !student.dob) return { active: false };
+
+    const birthDate = new Date(student.dob);
+    const today = new Date();
+    const diffTime = Math.abs(today - birthDate);
+    const currentDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    // These keys MUST match the strings in your toggleVaccine list in Medical Profile
+    const milestones = [
+      { days: 0, key: "BCG", label: "Due: BCG" },
+      { days: 42, key: "Penta-1", label: "Due: Penta-1" },
+      { days: 70, key: "Penta-2", label: "Due: Penta-2" },
+      { days: 98, key: "Penta-3", label: "Due: Penta-3" },
+      { days: 274, key: "MR-1", label: "Due: MR-1" },
+      { days: 487, key: "DPT-B1", label: "Due: DPT Booster 1" },
+      { days: 1826, key: "DPT-B2", label: "Due: DPT Booster 2 (5yr)" },
+      { days: 3652, key: "Td", label: "Due: Td Booster (10yr)" },
+      { days: 5844, key: "Td", label: "Due: Td Booster (16yr)" }
+    ];
+
+    const alertWindow = 15; // Shows alert 15 days before/after target date
+
+    for (let m of milestones) {
+      const isInRange = currentDays >= (m.days - alertWindow) && currentDays <= (m.days + 30);
+
+      if (isInRange) {
+        // Access the vaccinationRecord from the student object
+        const record = student.health?.vaccinationRecord || {};
+        const isDone = record[m.key] === true;
+
+        if (!isDone) {
+          return { active: true, label: m.label };
+        }
+      }
+    }
+    return { active: false };
+  };
+  
+  // --- DATA STATES ---
   const [students, setStudents] = useState(() => {
-    const saved = JSON.parse(localStorage.getItem("students")) || [];
-    return saved.sort((a, b) => {
-      const aLevel = getStudentAlertStatus(a.name).level;
-      const bLevel = getStudentAlertStatus(b.name).level;
-      const score = { critical: 2, warning: 1, none: 0 };
-      return score[bLevel] - score[aLevel];
-    });
+    return JSON.parse(localStorage.getItem("students")) || [];
   });
 
   const [visitors, setVisitors] = useState(() => JSON.parse(localStorage.getItem("visitors")) || []);
   const [searchQuery, setSearchQuery] = useState("");
   const [visitorSearch, setVisitorSearch] = useState("");
   const [vitalsUpdate, setVitalsUpdate] = useState({ name: "", h: "", w: "" });
-  
+
   const [visitorName, setVisitorName] = useState("");
   const [visitorPhone, setVisitorPhone] = useState("");
   const [visitorID, setVisitorID] = useState("");
   const [visitorPurpose, setVisitorPurpose] = useState("");
 
-  /* --- SAFEGUARD: ID MASKING --- */
+  /* --- SORTING & FILTERING LOGIC --- */
+  const processedStudents = useMemo(() => {
+    let list = students.filter(s => s.name?.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    return list.sort((a, b) => {
+      // Priority scoring: Mental Health > Vaccine > Overdue Vitals
+      const getScore = (student) => {
+        let score = 0;
+        if (getStudentAlertStatus(student.name).level === 'critical') score += 100;
+        if (getVaccineAlert(student.dob).active) score += 50;
+        if (checkPhysicalStatus(student) !== "OK") score += 10;
+        return score;
+      };
+      return getScore(b) - getScore(a);
+    });
+  }, [students, searchQuery]);
+
+  /* --- EXISTING FEATURES PRESERVED --- */
   const maskID = (id) => {
     if (!id || id === "N/A") return "N/A";
-    return `XXXX-XXXX-${id.slice(-4)}`; 
+    return `XXXX-XXXX-${id.slice(-4)}`;
   };
 
   const handleDeleteStudent = (studentName) => {
@@ -52,7 +106,7 @@ export default function GuardianDashboard() {
     const currentUser = JSON.parse(localStorage.getItem("guardianLoggedIn"));
     const account = guardiansData.find(g => g.email === currentUser?.email);
     const savedPassword = account ? account.password : "g";
-    
+
     const userInput = prompt(`To delete ${studentName}, please enter your account password:`);
     if (userInput === null) return;
     if (userInput === savedPassword) {
@@ -65,7 +119,6 @@ export default function GuardianDashboard() {
     }
   };
 
-  /* DATA EXPORT LOGIC */
   const downloadCSV = (content, fileName) => {
     const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -98,12 +151,12 @@ export default function GuardianDashboard() {
     downloadCSV([headers.join(","), ...rows].join("\n"), `Visitor_Logs.csv`);
   };
 
-  const checkPhysicalStatus = (student) => {
+  function checkPhysicalStatus(student) {
     if (!student?.health?.lastPhysicalUpdate) return "MISSING";
     const lastDate = new Date(student.health.lastPhysicalUpdate);
     const diffMonths = (new Date().getFullYear() - lastDate.getFullYear()) * 12 + (new Date().getMonth() - lastDate.getMonth());
     return diffMonths >= 3 ? "OVERDUE" : "OK";
-  };
+  }
 
   const handleUpdateVitals = (studentName) => {
     if (!vitalsUpdate.h || !vitalsUpdate.w) return alert("Enter vitals");
@@ -121,9 +174,9 @@ export default function GuardianDashboard() {
   const handleVisitorCheckIn = (e) => {
     e.preventDefault();
     if (!visitorName.trim() || !visitorPurpose.trim()) return alert("Fill Name and Purpose");
-    const newV = { 
+    const newV = {
       id: Date.now(), name: visitorName, phone: visitorPhone, idNum: visitorID || "N/A",
-      purpose: visitorPurpose, time: new Date().toLocaleTimeString(), exitTime: null 
+      purpose: visitorPurpose, time: new Date().toLocaleTimeString(), exitTime: null
     };
     const updatedV = [newV, ...visitors];
     setVisitors(updatedV);
@@ -137,10 +190,6 @@ export default function GuardianDashboard() {
     localStorage.setItem("visitors", JSON.stringify(updated));
   };
 
-  // Student Filter
-  const filteredStudents = students.filter(s => s.name?.toLowerCase().includes(searchQuery.toLowerCase()));
-
-  // Visitor Filter (Improved Logic to prevent errors)
   const filteredVisitors = visitors.filter(v => {
     const nameMatch = v.name?.toLowerCase().includes(visitorSearch.toLowerCase());
     const phoneMatch = v.phone?.includes(visitorSearch);
@@ -152,8 +201,8 @@ export default function GuardianDashboard() {
       {showWelcome && (
         <div style={styles.overlay}>
           <div style={styles.welcomeModal}>
-            <h2 style={{color: "#065f46", marginTop: 0, fontSize: "24px"}}>Welcome, Teacher! 👋</h2>
-            <p style={{color: "#475569", lineHeight: "1.5", fontSize: "18px"}}>Manage your student health records efficiently.</p>
+            <h2 style={{ color: "#065f46", marginTop: 0, fontSize: "24px" }}>Welcome, Teacher! 👋</h2>
+            <p style={{ color: "#475569", lineHeight: "1.5", fontSize: "18px" }}>Manage your student health records efficiently.</p>
             <button onClick={closeWelcome} style={styles.welcomeBtn}>Start Now</button>
           </div>
         </div>
@@ -177,16 +226,27 @@ export default function GuardianDashboard() {
             <input style={styles.searchInput} placeholder="🔍 Search name..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
           </div>
           <button style={{ ...styles.addBtn, background: "#065f46" }} onClick={() => navigate("/guardian/add-student")}>＋ Register Student Profile</button>
-          
+
           <div style={styles.listContainer}>
-            {filteredStudents.map((s) => {
+            {processedStudents.map((s) => {
               const healthStatus = checkPhysicalStatus(s);
+              const vacAlert = getVaccineAlert(s);
+              const mentalAlert = getStudentAlertStatus(s.name);
+
               return (
-                <div key={s.name} style={{...styles.studentCardContainer, borderLeft: getStudentAlertStatus(s.name).level === 'critical' ? '6px solid #ef4444' : '6px solid #065f46'}}>
+                <div key={s.name} style={{ ...styles.studentCardContainer, borderLeft: mentalAlert.level === 'critical' ? '6px solid #ef4444' : '6px solid #065f46' }}>
                   <div style={styles.studentCard}>
                     <div style={{ flex: 1 }}>
-                      <h3 style={styles.studentName}>{s.name} <small>({s.age}y)</small></h3>
-                      <span style={styles.studentBadge}>{s.disability}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                        <h3 style={styles.studentName}>{s.name} <small>({s.age}y)</small></h3>
+
+                        {/* ALERT TAGS */}
+                        {mentalAlert.level === 'critical' && <span style={styles.alertTagCritical}>🧠 Mental Health Alert</span>}
+                        {vacAlert.active && <span style={styles.alertTagVaccine}>💉 {vacAlert.label}</span>}
+                      </div>
+                      <div style={{ marginTop: "5px" }}>
+                        <span style={styles.studentBadge}>{s.disability}</span>
+                      </div>
                     </div>
                     <div style={{ display: "flex", gap: "8px" }}>
                       <button style={{ ...styles.viewBtn, background: "#065f46" }} onClick={() => navigate(`/guardian/medical-profile/${encodeURIComponent(s.name)}`)}>Profile</button>
@@ -194,8 +254,12 @@ export default function GuardianDashboard() {
                       <button style={{ ...styles.viewBtn, background: "#ef4444" }} onClick={() => handleDeleteStudent(s.name)}>Delete</button>
                     </div>
                   </div>
+
                   {healthStatus !== "OK" && (
                     <div style={healthStatus === "MISSING" ? styles.missingAlert : styles.overdueAlert}>
+                      <p style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "bold", color: "#9a3412" }}>
+                        {healthStatus === "MISSING" ? "⚠️ Update Vitals" : "⚠️ Vitals Update Overdue (3+ Months)"}
+                      </p>
                       <div style={{ display: "flex", gap: "8px" }}>
                         <input placeholder="cm" style={styles.vitalsInput} type="number" onChange={(e) => setVitalsUpdate({ ...vitalsUpdate, name: s.name, h: e.target.value })} />
                         <input placeholder="kg" style={styles.vitalsInput} type="number" onChange={(e) => setVitalsUpdate({ ...vitalsUpdate, name: s.name, w: e.target.value })} />
@@ -234,11 +298,11 @@ export default function GuardianDashboard() {
           </div>
 
           <h2 style={styles.sectionTitle}>Search Records</h2>
-          <input 
-            style={{...styles.visitorInput, marginBottom: "10px", border: "2px solid #065f46"}} 
-            placeholder="🔍 Search Visitors by Name or Phone..." 
-            value={visitorSearch} 
-            onChange={(e) => setVisitorSearch(e.target.value)} 
+          <input
+            style={{ ...styles.visitorInput, marginBottom: "10px", border: "2px solid #065f46" }}
+            placeholder="🔍 Search Visitors by Name or Phone..."
+            value={visitorSearch}
+            onChange={(e) => setVisitorSearch(e.target.value)}
           />
 
           <div style={styles.listContainer}>
@@ -279,10 +343,12 @@ const styles = {
   studentCardContainer: { borderRadius: "12px", background: "#fff", marginBottom: "12px", boxShadow: "0 2px 4px rgba(0,0,0,0.05)", border: "1px solid #eee", overflow: "hidden" },
   studentCard: { padding: "15px 20px", display: "flex", alignItems: "center" },
   studentName: { margin: 0, fontSize: "20px" },
-  studentBadge: { fontSize: "12px", background: "#ecfdf5", color: "#065f46", padding: "3px 8px", borderRadius: "4px", fontWeight: "bold" },
+  studentBadge: { fontSize: "12px", background: "#f1f5f9", color: "#475569", padding: "3px 8px", borderRadius: "4px", fontWeight: "bold" },
+  alertTagCritical: { fontSize: "11px", background: "#fef2f2", color: "#dc2626", padding: "4px 8px", borderRadius: "20px", fontWeight: "800", border: "1px solid #fca5a5" },
+  alertTagVaccine: { fontSize: "11px", background: "#fffbeb", color: "#b45309", padding: "4px 8px", borderRadius: "20px", fontWeight: "800", border: "1px solid #fcd34d" },
   viewBtn: { color: "#fff", border: "none", padding: "8px 14px", borderRadius: "8px", cursor: "pointer", fontSize: "14px", fontWeight: "600" },
-  missingAlert: { background: "#fff7ed", padding: "15px" },
-  overdueAlert: { background: "#fef2f2", padding: "15px" },
+  missingAlert: { background: "#fff7ed", padding: "15px", borderTop: "1px solid #fed7aa" },
+  overdueAlert: { background: "#fef2f2", padding: "15px", borderTop: "1px solid #fecaca" },
   vitalsInput: { width: "70px", padding: "8px", borderRadius: "6px", border: "1px solid #ddd", fontSize: "16px" },
   saveVitalsBtn: { background: "#065f46", color: "#fff", border: "none", padding: "8px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "14px" },
   formCard: { background: "#fff", padding: "20px", borderRadius: "12px", border: "1px solid #eee" },
