@@ -10,7 +10,12 @@ import GuardianSignup from "./auth/GuardianSignup";
 import StudentLogin from "./auth/StudentLogin";
 
 /* PAGES / DASHBOARDS */
-import AdminDashboard from "./pages/admin/adminDashboard";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import OrphanageList from "./pages/admin/OrphanageList";
+import StudentAnalytics from "./pages/admin/StudentAnalytics";
+import ContentManager from "./pages/admin/ContentManager";
+import ContentAnalytics from "./pages/admin/ContentAnalytics";
+import VisitorLogs from "./pages/admin/VisitorLogs";
 import GuardianDashboard from "./pages/guardian/guardianDashboard";
 import StudentDashboard from "./pages/students/studentDashboard";
 import StudentProgress from "./pages/students/StudentProgress";
@@ -19,6 +24,7 @@ import Lessons from "./pages/students/Lessons";
 import StudentProgressPage from "./pages/guardian/StudentProgressPage";
 import StudentMedicalProfile from "./pages/guardian/StudentMedicalProfile";
 import Instructions from "./pages/guardian/Instructions";
+import AdminContentUpload from "./pages/admin/adminLessonUpload";
 
 // 1. IMPORT YOUR NEW REGISTRATION PAGE
 import GuardianAddStudent from "./pages/guardian/addStudent";
@@ -55,6 +61,47 @@ export default function App() {
         {/* ADMIN */}
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/dashboard" element={<ProtectedAdmin><AdminDashboard /></ProtectedAdmin>} />
+         <Route path="/admin/content" element={<AdminContentUpload />} />
+          <Route
+          path="/admin/orphanages"
+          element={
+            <ProtectedAdmin>
+              <OrphanageList />
+            </ProtectedAdmin>
+          }
+        />
+        <Route
+          path="/admin/students"
+          element={
+            <ProtectedAdmin>
+              <StudentAnalytics />
+            </ProtectedAdmin>
+          }
+        />
+        <Route
+          path="/admin/content"
+          element={
+            <ProtectedAdmin>
+              <ContentManager />
+            </ProtectedAdmin>
+          }
+        />
+        <Route
+          path="/admin/content/analytics"
+          element={
+            <ProtectedAdmin>
+              <ContentAnalytics />
+            </ProtectedAdmin>
+          }
+        />
+        <Route
+          path="/admin/visitors"
+          element={
+            <ProtectedAdmin>
+              <VisitorLogs />
+            </ProtectedAdmin>
+          }
+        />
 
         {/* GUARDIAN */}
         <Route path="/guardian/login" element={<GuardianLogin />} />

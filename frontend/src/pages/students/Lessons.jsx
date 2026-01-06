@@ -1,5 +1,5 @@
-import React, { useState, useRef } from "react";
-import { lessons } from "../../data/lessons";
+import React, { useState, useRef, useEffect } from "react"; // Added useEffect
+import { lessons as staticLessons } from "../../data/lessons"; // Rename import to avoid confusion
 
 export default function Lessons({
   student,
@@ -10,7 +10,16 @@ export default function Lessons({
   lang
 }) {
   const [subject, setSubject] = useState("maths");
+  const [allLessons, setAllLessons] = useState([]); // New state for combined lessons
   const audioRef = useRef(null);
+
+  // Load and merge lessons
+  useEffect(() => {
+    const customLessons = JSON.parse(localStorage.getItem("custom_lessons")) || [];
+    
+    // Combine hardcoded lessons with admin-uploaded ones
+    setAllLessons([...staticLessons, ...customLessons]);
+  }, [subject]); // Reload when subject changes
 
   const isBlind = student.disability?.toLowerCase() === "blind" ||
     student.disability?.toLowerCase() === "visually impaired";
@@ -22,7 +31,8 @@ export default function Lessons({
     onComplete(lessonId, subject);
   };
 
-  const eligibleLessons = lessons.filter((l) => {
+  // Use allLessons instead of the imported 'lessons'
+  const eligibleLessons = allLessons.filter((l) => {
     const studentLevel = (student.levels?.[subject] || "")
       .replace(/\s/g, "")
       .toLowerCase();
@@ -74,7 +84,6 @@ export default function Lessons({
               index > 0 &&
               !student.completedLessons?.includes(eligibleLessons[index - 1].id);
 
-            // Only the first unlocked lesson gets the shortcut IDs
             const isCurrentActive = !isLocked && (index === 0 || student.completedLessons?.includes(eligibleLessons[index - 1].id));
 
             return (
@@ -100,29 +109,43 @@ export default function Lessons({
                   {!isLocked && (
                     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
 
-                      {/* MEDIA SECTION */}
+                      {/* MEDIA SECTION - UPDATED TO HANDLE UPLOADS */}
                       {isBlind ? (
                         <audio
                           id={isCurrentActive ? "play-lesson-button" : undefined}
                           ref={isCurrentActive ? audioRef : null}
                           controls
-                          src={lesson.audio}
+                          // Check if it's a local file name or a full URL
+                          src={lesson.audioFile ? `/audios/${lesson.audioFile}` : lesson.audio}
                           style={{ width: "100%" }}
                           onEnded={() => handleManualComplete(lesson.id)}
                         />
                       ) : (
                         <div style={{ position: "relative", paddingTop: "56.25%" }}>
-                          <iframe
-                            id={isCurrentActive ? "play-lesson-button" : undefined}
-                            style={{
-                              position: "absolute", top: 0, left: 0,
-                              width: "100%", height: "100%", borderRadius: "12px"
-                            }}
-                            src={`https://www.youtube.com/embed/${lesson.videoId}?enablejsapi=1`}
-                            title="lesson"
-                            frameBorder="0"
-                            allowFullScreen
-                          />
+                          {/* If lesson has a videoFile (from Admin), use <video>, otherwise use iframe */}
+                          {lesson.videoFile ? (
+                            <video
+                              controls
+                              style={{
+                                position: "absolute", top: 0, left: 0,
+                                width: "100%", height: "100%", borderRadius: "12px",
+                                background: "#000"
+                              }}
+                              src={`/videos/${lesson.videoFile}`}
+                            />
+                          ) : (
+                            <iframe
+                              id={isCurrentActive ? "play-lesson-button" : undefined}
+                              style={{
+                                position: "absolute", top: 0, left: 0,
+                                width: "100%", height: "100%", borderRadius: "12px"
+                              }}
+                              src={`https://www.youtube.com/embed/${lesson.videoId}?enablejsapi=1`}
+                              title="lesson"
+                              frameBorder="0"
+                              allowFullScreen
+                            />
+                          )}
                         </div>
                       )}
 
@@ -134,7 +157,6 @@ export default function Lessons({
                         </div>
                       )}
 
-                      {/* THE TEST BUTTON */}
                       <button
                         id={isCurrentActive ? "start-test-button" : undefined}
                         onClick={() => handleManualComplete(lesson.id)}
@@ -147,13 +169,10 @@ export default function Lessons({
                           borderRadius: "12px",
                           fontWeight: "800",
                           fontSize: isADHD ? "18px" : "15px",
-                          cursor: "pointer",
-                          transition: "transform 0.2s"
+                          cursor: "pointer"
                         }}
                       >
-                        {lang === 'hi'
-                          ? (t.readyForTest || "परीक्षा के लिए तैयार!")
-                          : (t.readyForTest || "I'M READY FOR THE TEST!")}
+                        {lang === 'hi' ? "परीक्षा के लिए तैयार!" : "I'M READY FOR THE TEST!"}
                       </button>
                     </div>
                   )}
