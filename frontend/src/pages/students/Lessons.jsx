@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { lessons } from "../../data/lessons";
 
 export default function Lessons({
@@ -10,11 +10,11 @@ export default function Lessons({
   lang
 }) {
   const [subject, setSubject] = useState("maths");
-  
-  // Updated logic to match the "visually impaired" label seen in your dashboard screenshots
-  const isBlind = student.disability?.toLowerCase() === "blind" || 
-                  student.disability?.toLowerCase() === "visually impaired";
-                  
+  const audioRef = useRef(null);
+
+  const isBlind = student.disability?.toLowerCase() === "blind" ||
+    student.disability?.toLowerCase() === "visually impaired";
+
   const isADHD = student.disability?.toLowerCase() === "adhd";
 
   const handleManualComplete = (lessonId) => {
@@ -74,6 +74,9 @@ export default function Lessons({
               index > 0 &&
               !student.completedLessons?.includes(eligibleLessons[index - 1].id);
 
+            // Only the first unlocked lesson gets the shortcut IDs
+            const isCurrentActive = !isLocked && (index === 0 || student.completedLessons?.includes(eligibleLessons[index - 1].id));
+
             return (
               <div
                 key={lesson.id}
@@ -96,10 +99,12 @@ export default function Lessons({
 
                   {!isLocked && (
                     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                      
-                      {/* MEDIA SECTION - Swaps to Audio for Visual Impairments */}
+
+                      {/* MEDIA SECTION */}
                       {isBlind ? (
                         <audio
+                          id={isCurrentActive ? "play-lesson-button" : undefined}
+                          ref={isCurrentActive ? audioRef : null}
                           controls
                           src={lesson.audio}
                           style={{ width: "100%" }}
@@ -108,11 +113,12 @@ export default function Lessons({
                       ) : (
                         <div style={{ position: "relative", paddingTop: "56.25%" }}>
                           <iframe
+                            id={isCurrentActive ? "play-lesson-button" : undefined}
                             style={{
                               position: "absolute", top: 0, left: 0,
                               width: "100%", height: "100%", borderRadius: "12px"
                             }}
-                            src={`https://www.youtube.com/embed/${lesson.videoId}`}
+                            src={`https://www.youtube.com/embed/${lesson.videoId}?enablejsapi=1`}
                             title="lesson"
                             frameBorder="0"
                             allowFullScreen
@@ -128,8 +134,9 @@ export default function Lessons({
                         </div>
                       )}
 
-                      {/* THE READY BUTTON */}
+                      {/* THE TEST BUTTON */}
                       <button
+                        id={isCurrentActive ? "start-test-button" : undefined}
                         onClick={() => handleManualComplete(lesson.id)}
                         style={{
                           width: "100%",
@@ -144,8 +151,8 @@ export default function Lessons({
                           transition: "transform 0.2s"
                         }}
                       >
-                        {lang === 'hi' 
-                          ? (t.readyForTest || "परीक्षा के लिए तैयार!") 
+                        {lang === 'hi'
+                          ? (t.readyForTest || "परीक्षा के लिए तैयार!")
                           : (t.readyForTest || "I'M READY FOR THE TEST!")}
                       </button>
                     </div>

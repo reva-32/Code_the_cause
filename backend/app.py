@@ -9,18 +9,17 @@ CORS(app)  # ✅ CORS added
 @app.route("/chat", methods=["POST"])
 def chat():
     data = request.get_json()
-    print("Incoming data:", data)  # 👈 DEBUG LINE
+    print("Incoming data:", data) 
 
-    if not data:
-        return jsonify({"error": "No JSON received"}), 400
-
-    if data.get("source") != "student_dashboard":
+    if not data or data.get("source") != "student_dashboard":
         return jsonify({"error": "Access denied"}), 403
 
     user_message = data.get("message", "")
-    reply = ask_bot(user_message)
-    return jsonify({"reply": reply})
+    # ✅ Grab the flag from the frontend request
+    is_blind = data.get("is_blind", False) 
 
+    reply = ask_bot(user_message, is_blind=is_blind)
+    return jsonify({"reply": reply})
 
 # Run the Flask app
 if __name__ == "__main__":

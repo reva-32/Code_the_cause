@@ -15,13 +15,11 @@ export default function TopicTest() {
   const [score, setScore] = useState(0);
   const [subject, setSubject] = useState("");
 
-  // Existing disability checks
   const isBlind = student?.disability === "blind";
   const isADHD = student?.disability === "adhd";
 
-  // MODIFIED: Added check to prevent speech for non-blind students
   const speak = (text) => {
-    if (!window.speechSynthesis || !isBlind) return; // Prevent speech if not blind
+    if (!window.speechSynthesis || !isBlind) return;
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 0.9;
@@ -29,6 +27,7 @@ export default function TopicTest() {
     window.speechSynthesis.speak(u);
   };
 
+  // 1. INITIAL SETUP
   useEffect(() => {
     const name = localStorage.getItem("loggedInStudent");
     const students = JSON.parse(localStorage.getItem("students")) || [];
@@ -45,29 +44,37 @@ export default function TopicTest() {
     setSubject(sub);
     setQuestions(test?.questions || []);
 
-    // INITIAL GUIDANCE AUDIO - This now only speaks if isBlind is true due to the check in speak()
     if (s.disability === "blind") {
-      const welcomeMsg = `Topic Test for ${sub} started. To hear the question and options, click the audio button located on the left side of each question.`;
-      speak(welcomeMsg);
+      speak(`Test started. Press 1, 2, 3 or 4 to select options. Press Enter to go to next question. Press R to hear question again.`);
     }
-  }, [lessonId, isBlind]); // Added isBlind to dependency array
+  }, [lessonId]);
 
   const q = questions[currentQuestionIndex];
 
+  // 2. AUTO-READ ON NEW QUESTION
+  useEffect(() => {
+    if (isBlind && q && !submitted) {
+      handleReadQuestion();
+    }
+  }, [currentQuestionIndex, questions, isBlind]);
+
   const handleReadQuestion = () => {
-    const optionsText = q.options.join(", ");
-    speak(`Question: ${q.question}. The options are: ${optionsText}`);
+    if (!q) return;
+    const optionsText = q.options.map((opt, i) => `Option ${i + 1}: ${opt}`).join(". ");
+    speak(`Question ${currentQuestionIndex + 1}: ${q.question}. ${optionsText}`);
   };
 
-  const handleOptionSelect = (opt) => {
+  const handleOptionSelect = (opt, index) => {
     setAnswers({ ...answers, [currentQuestionIndex]: opt });
-    speak(`Selected ${opt}`);
+    speak(`Option ${index + 1} selected.`);
   };
 
   const nextQuestion = () => {
-    const nextIdx = currentQuestionIndex + 1;
-    setCurrentQuestionIndex(nextIdx);
-    speak(`Moving to Question ${nextIdx + 1}`);
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+    } else {
+      handleSubmit();
+    }
   };
 
   const handleSubmit = () => {
@@ -85,11 +92,53 @@ export default function TopicTest() {
       return s;
     });
     localStorage.setItem("students", JSON.stringify(updated));
-    speak(`Test submitted. Your score is ${result} percent.`);
+    speak(`Test submitted. Your score is ${result} percent. Press Enter to go back to dashboard.`);
   };
+
+  /* ================= 3. KEYBOARD SHORTCUTS LOGIC ================= */
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!isBlind || submitted) return;
+
+      // Select Option (1, 2, 3, 4)
+      if (["1", "2", "3", "4"].includes(e.key)) {
+        const idx = parseInt(e.key) - 1;
+        if (q?.options[idx]) {
+          handleOptionSelect(q.options[idx], idx);
+        }
+      }
+
+      // Next Question / Submit (Enter)
+      if (e.key === "Enter") {
+        if (answers[currentQuestionIndex]) {
+          nextQuestion();
+        } else {
+          speak("Please select an option first.");
+        }
+      }
+
+      // Replay Question (R)
+      if (e.key.toLowerCase() === "r") {
+        handleReadQuestion();
+      }
+    };
+
+    // Global listener for results screen shortcut
+    const handleResultEnter = (e) => {
+      if (submitted && e.key === "Enter") navigate("/student/dashboard");
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleResultEnter);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keydown", handleResultEnter);
+    };
+  }, [isBlind, q, answers, currentQuestionIndex, submitted]);
 
   if (!student) return null;
 
+  /* ================= 4. RENDER ================= */
   return (
     <div style={{ maxWidth: "800px", margin: "40px auto", padding: "20px", fontFamily: "'Inter', sans-serif" }}>
       {!submitted ? (
@@ -101,6 +150,7 @@ export default function TopicTest() {
           border: isADHD ? "3px solid #065f46" : "1px solid #f1f5f9"
         }}>
 
+          {/* Progress Bar */}
           <div style={{ marginBottom: "30px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", fontWeight: "bold", color: "#64748b", marginBottom: "10px" }}>
               <span>{subject.toUpperCase()} QUIZ</span>
@@ -117,15 +167,8 @@ export default function TopicTest() {
           {q && (
             <div>
               <div style={{ display: "flex", alignItems: "flex-start", gap: "15px", marginBottom: "25px" }}>
-                {/* MODIFIED: THE LEFT AUDIO BUTTON - Only visible for blind students */}
                 {isBlind && (
-                  <button
-                    onClick={handleReadQuestion}
-                    title="Read Question Aloud"
-                    style={styles.audioIconBtn}
-                  >
-                    🔊
-                  </button>
+                  <button onClick={handleReadQuestion} title="Read Question Aloud (R)" style={styles.audioIconBtn}>🔊</button>
                 )}
                 <h2 style={{ fontSize: isADHD ? "26px" : "22px", color: "#1e293b", margin: 0, lineHeight: "1.4" }}>
                   {q.question}
@@ -133,31 +176,19 @@ export default function TopicTest() {
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                {q.options.map((opt) => {
+                {q.options.map((opt, index) => {
                   const isSelected = answers[currentQuestionIndex] === opt;
                   return (
                     <button
                       key={opt}
-                      onClick={() => handleOptionSelect(opt)}
+                      onClick={() => handleOptionSelect(opt, index)}
                       style={{
-                        padding: "18px",
-                        textAlign: "left",
-                        borderRadius: "15px",
-                        border: isSelected ? "2px solid #10b981" : "2px solid #f1f5f9",
-                        background: isSelected ? "#f0fdf4" : "#fff",
-                        fontSize: "16px",
-                        fontWeight: isSelected ? "700" : "500",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "15px"
+                        ...styles.optionBtn(isSelected),
+                        fontSize: isADHD ? "18px" : "16px"
                       }}
                     >
-                      <div style={{
-                        width: "20px", height: "20px", borderRadius: "50%",
-                        border: isSelected ? "6px solid #10b981" : "2px solid #cbd5e1"
-                      }} />
-                      {opt}
+                      <div style={styles.radioCircle(isSelected)} />
+                      <span style={{ fontWeight: "bold", marginRight: "10px" }}>{index + 1}.</span> {opt}
                     </button>
                   );
                 })}
@@ -170,7 +201,7 @@ export default function TopicTest() {
                     onClick={nextQuestion}
                     style={styles.navBtn(!!answers[currentQuestionIndex])}
                   >
-                    Next Question ➔
+                    Next Question (Enter) ➔
                   </button>
                 ) : (
                   <button
@@ -178,7 +209,7 @@ export default function TopicTest() {
                     onClick={handleSubmit}
                     style={styles.submitBtn(Object.keys(answers).length === questions.length)}
                   >
-                    Submit Test 🏁
+                    Submit Test (Enter) 🏁
                   </button>
                 )}
               </div>
@@ -189,11 +220,12 @@ export default function TopicTest() {
         <div style={{ textAlign: "center", padding: "50px", background: "#fff", borderRadius: "24px" }}>
           <div style={{ fontSize: "60px", marginBottom: "20px" }}>{score >= 50 ? "🎉" : "📚"}</div>
           <h1 style={{ fontSize: "40px", color: "#1e293b" }}>{score}%</h1>
+          <p>Test Completed Successfully!</p>
           <button
             onClick={() => navigate("/student/dashboard")}
             style={{ padding: "15px 40px", borderRadius: "12px", background: "#065f46", color: "white", border: "none", fontWeight: "bold", cursor: "pointer" }}
           >
-            Back to Dashboard
+            Back to Dashboard (Enter)
           </button>
         </div>
       )}
@@ -202,31 +234,23 @@ export default function TopicTest() {
 }
 
 const styles = {
-  audioIconBtn: {
-    background: "#f1f5f9",
-    border: "none",
-    borderRadius: "12px",
-    padding: "10px 15px",
-    fontSize: "20px",
-    cursor: "pointer",
-    boxShadow: "0 2px 5px rgba(0,0,0,0.1)"
-  },
+  audioIconBtn: { background: "#f1f5f9", border: "none", borderRadius: "12px", padding: "10px 15px", fontSize: "20px", cursor: "pointer" },
+  optionBtn: (isSelected) => ({
+    padding: "18px", textAlign: "left", borderRadius: "15px", outline: "none",
+    border: isSelected ? "2px solid #10b981" : "2px solid #f1f5f9",
+    background: isSelected ? "#f0fdf4" : "#fff",
+    cursor: "pointer", display: "flex", alignItems: "center", gap: "15px", transition: "all 0.2s"
+  }),
+  radioCircle: (isSelected) => ({
+    width: "20px", height: "20px", borderRadius: "50%",
+    border: isSelected ? "6px solid #10b981" : "2px solid #cbd5e1"
+  }),
   navBtn: (ready) => ({
-    padding: "16px 35px",
-    background: ready ? "#065f46" : "#cbd5e1",
-    color: "#fff",
-    border: "none",
-    borderRadius: "12px",
-    fontWeight: "800",
-    cursor: ready ? "pointer" : "not-allowed"
+    padding: "16px 35px", background: ready ? "#065f46" : "#cbd5e1", color: "#fff",
+    border: "none", borderRadius: "12px", fontWeight: "800", cursor: ready ? "pointer" : "not-allowed"
   }),
   submitBtn: (ready) => ({
-    padding: "16px 35px",
-    background: ready ? "#10b981" : "#cbd5e1",
-    color: "#fff",
-    border: "none",
-    borderRadius: "12px",
-    fontWeight: "800",
-    cursor: ready ? "pointer" : "not-allowed"
+    padding: "16px 35px", background: ready ? "#10b981" : "#cbd5e1", color: "#fff",
+    border: "none", borderRadius: "12px", fontWeight: "800", cursor: ready ? "pointer" : "not-allowed"
   })
 };

@@ -47,8 +47,7 @@ export default function StudentDashboard() {
     wellnessGold: "#f59e0b"
   };
 
-  /* ================= 1. THE SMOOTH INDIAN FEMALE VOICE ================= */
-
+  /* ================= 1. VOICE SYNTHESIS ================= */
   useEffect(() => {
     const loadVoices = () => window.speechSynthesis.getVoices();
     loadVoices();
@@ -67,13 +66,11 @@ export default function StudentDashboard() {
       .replace(/\n/g, ". ");
 
     const sentences = cleanText.split(". ");
-
     sentences.forEach((sentence) => {
       if (!sentence.trim()) return;
       const utterance = new SpeechSynthesisUtterance(sentence.trim());
       const voices = window.speechSynthesis.getVoices();
 
-      // Priority: Indian Female (Heera, Kalpana, Google)
       const indianFemale = voices.find(v =>
         (v.lang.includes("en-IN") || v.lang.includes("hi-IN")) &&
         (v.name.toLowerCase().includes("female") ||
@@ -83,37 +80,61 @@ export default function StudentDashboard() {
       );
 
       if (indianFemale) utterance.voice = indianFemale;
-      utterance.rate = 0.88;
+      utterance.rate = 0.9;
       utterance.pitch = 1.1;
       window.speechSynthesis.speak(utterance);
     });
   };
 
-  /* ================= 2. KEYBOARD NAVIGATION & MUTE ================= */
-
+  /* ================= 2. KEYBOARD NAVIGATION & SHORTCUTS ================= */
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // 🔇 MUTE: Press 'm' to stop speech (unless typing)
-      if (e.key.toLowerCase() === 'm' && document.activeElement.tagName !== "INPUT") {
+      const isTyping = document.activeElement.tagName === "INPUT";
+
+      if (e.key.toLowerCase() === 'm' && !isTyping) {
         window.speechSynthesis.cancel();
       }
 
-      // ⌨️ SHORTCUTS
-      if (e.altKey && e.key.toLowerCase() === 'c') {
-        e.preventDefault();
-        document.getElementById('chat-input')?.focus();
-        speak("Moving to Chatbot. Hold space bar to speak your doubt.");
-      }
       if (e.altKey && e.key.toLowerCase() === 'l') {
         e.preventDefault();
         document.getElementById('lessons-section')?.focus();
-        speak("Moving to Lessons section.");
+        speak("Lessons section. Use tab to browse topics.");
       }
 
-      // 🎤 SPACEBAR VOICE INPUT
-      if (isBlind && e.code === "Space" && document.activeElement.tagName !== "INPUT") {
+      if (e.altKey && e.key.toLowerCase() === 'p') {
         e.preventDefault();
-        startListening();
+        const audioEl = document.getElementById('play-lesson-button');
+        if (audioEl) {
+          if (audioEl.paused) {
+            audioEl.play().catch(err => console.error("Playback failed", err));
+            speak("Playing lesson.");
+          } else {
+            audioEl.pause();
+            speak("Paused.");
+          }
+        }
+      }
+
+      if (e.altKey && e.key.toLowerCase() === 'q') {
+        e.preventDefault();
+        speak("Logging out. See you soon!");
+        setTimeout(() => navigate("/"), 1500);
+      }
+
+      if (e.altKey && e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        const testBtn = document.getElementById('start-test-button');
+        if (testBtn) {
+          speak("Starting test.");
+          testBtn.click();
+        } else {
+          speak("Test button not found.");
+        }
+      }
+
+      if (isBlind && e.code === "Space" && !isTyping) {
+        e.preventDefault();
+        if (!isListening) startListening();
       }
     };
 
@@ -127,10 +148,9 @@ export default function StudentDashboard() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [isBlind, lang]);
+  }, [isBlind, isListening, lang]);
 
-  /* ================= CORE FUNCTIONS ================= */
-
+  /* ================= 3. CORE VOICE & DATA FUNCTIONS ================= */
   const playBeep = (freq) => {
     try {
       const context = new (window.AudioContext || window.webkitAudioContext)();
@@ -224,9 +244,9 @@ export default function StudentDashboard() {
 
   if (!student) return null;
 
+  /* ================= 4. RENDER ================= */
   return (
     <div style={{ backgroundColor: colors.pastelBg, minHeight: "100vh", padding: "20px" }}>
-      {/* Invisible Skip link for keyboard users */}
       <button onClick={() => document.getElementById('chat-input').focus()} style={styles.skipLink}>
         Skip to Chatbox (Alt + C)
       </button>
@@ -244,8 +264,9 @@ export default function StudentDashboard() {
           <PlacementTest student={student} setStudent={setStudent} />
         ) : (
           <div style={styles.dashboardGrid}>
-            {/* Main Content Area */}
-            <main id="lessons-section" tabIndex="0" style={styles.card} aria-label="Lesson List">
+
+            {/* LEFT SECTION: LESSONS */}
+            <main id="lessons-section" tabIndex="-1" style={styles.card} aria-label="Lesson List">
               <Lessons
                 student={student}
                 onComplete={handleCompleteLesson}
@@ -255,34 +276,46 @@ export default function StudentDashboard() {
               />
             </main>
 
-            {/* Sidebar Chat Area */}
-            <aside id="chatbot-section" style={styles.chatbotContainer} aria-label="AI Doubt Solver">
-              <div style={styles.chatHeader}>🤖 {t.doubtSolver} <span style={{ fontSize: '10px', marginLeft: '10px' }}>(M to Mute)</span></div>
-              <div style={styles.chatBody} aria-live="polite">
-                {messages.map((msg, i) => (
-                  <div key={i} style={{ textAlign: msg.role === "user" ? "right" : "left", marginBottom: "15px" }}>
-                    <div style={{ ...styles.bubble, background: msg.role === "user" ? colors.primaryDeep : "#f1f5f9", color: msg.role === "user" ? "#fff" : "#334155" }}>
-                      <div dangerouslySetInnerHTML={{ __html: formatBotMessage(msg.content) }} />
-                    </div>
-                  </div>
-                ))}
-                <div ref={messagesEndRef} />
-              </div>
+            {/* RIGHT SECTION: PROGRESS TOP, CHATBOT BOTTOM */}
+            <div style={styles.rightSidebar}>
 
-              {isListening && <div style={styles.listeningIndicator}>🎤 Listening...</div>}
-              <div style={styles.chatInputRow}>
-                <input
-                  id="chat-input"
-                  style={styles.input}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-                  aria-label="Ask your doubt here"
-                  placeholder={isBlind ? "Hold Space to speak..." : t.askDoubt}
-                />
-                <button onClick={() => sendMessage()} style={styles.sendBtn} aria-label="Send Message">➤</button>
-              </div>
-            </aside>
+              {/* Progress Bars (Stacked one below the other) */}
+              {student && student.levels && (
+                <div style={styles.progressContainer}>
+                  <StudentProgress student={student} t={t} lang={lang} />
+                </div>
+              )}
+
+              {/* Chatbot Solver */}
+              <aside id="chatbot-section" tabIndex="-1" style={styles.chatbotContainer} aria-label="AI Doubt Solver">
+                <div style={styles.chatHeader}>🤖 {t.doubtSolver}</div>
+                <div style={styles.chatBody} aria-live="polite">
+                  {messages.map((msg, i) => (
+                    <div key={i} style={{ textAlign: msg.role === "user" ? "right" : "left", marginBottom: "15px" }}>
+                      <div style={{ ...styles.bubble, background: msg.role === "user" ? colors.primaryDeep : "#f1f5f9", color: msg.role === "user" ? "#fff" : "#334155" }}>
+                        <div dangerouslySetInnerHTML={{ __html: formatBotMessage(msg.content) }} />
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={messagesEndRef} />
+                </div>
+
+                {isListening && <div style={styles.listeningIndicator}>🎤 Listening...</div>}
+                <div style={styles.chatInputRow}>
+                  <input
+                    id="chat-input"
+                    style={styles.input}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                    aria-label="Ask your doubt here"
+                    placeholder={isBlind ? "Hold Space to speak..." : t.askDoubt}
+                  />
+                  <button onClick={() => sendMessage()} style={styles.sendBtn} aria-label="Send Message">➤</button>
+                </div>
+              </aside>
+            </div>
+
           </div>
         )}
       </div>
@@ -294,9 +327,17 @@ const styles = {
   nav: { display: "flex", justifyContent: "space-between", background: "#fff", padding: "15px 30px", borderRadius: "20px", marginBottom: "20px", alignItems: "center", boxShadow: "0 2px 10px rgba(0,0,0,0.05)" },
   badge: { background: "#f1f5f9", padding: "5px 12px", borderRadius: "10px", fontSize: "11px", fontWeight: "bold", color: "#64748b" },
   logoutBtn: { background: "#fee2e2", color: "#dc2626", border: "none", padding: "8px 15px", borderRadius: "10px", fontWeight: "bold", cursor: "pointer" },
-  dashboardGrid: { display: "grid", gridTemplateColumns: "1fr 450px", gap: "25px", marginTop: "25px", height: "700px" },
+
+  dashboardGrid: { display: "grid", gridTemplateColumns: "1fr 450px", gap: "25px", marginTop: "25px", height: "750px" },
+
+  // Container to hold Progress + Chatbot vertically
+  rightSidebar: { display: "flex", flexDirection: "column", gap: "20px", height: "100%" },
+
+  // Progress Container
+  progressContainer: { background: "#fff", borderRadius: "24px", padding: "20px", boxShadow: "0 2px 10px rgba(0,0,0,0.05)" },
+
   card: { background: "#fff", borderRadius: "24px", overflowY: "auto", padding: "20px", outline: "none" },
-  chatbotContainer: { background: "#fff", borderRadius: "24px", display: "flex", flexDirection: "column", overflow: "hidden" },
+  chatbotContainer: { flex: 1, background: "#fff", borderRadius: "24px", display: "flex", flexDirection: "column", overflow: "hidden", outline: "none" },
   chatHeader: { background: "#065f46", color: "#fff", padding: "20px", fontWeight: "bold" },
   chatBody: { flex: 1, overflowY: "auto", padding: "20px" },
   listeningIndicator: { background: "#fee2e2", color: "#dc2626", textAlign: "center", padding: "5px", fontSize: "12px", fontWeight: "bold" },
