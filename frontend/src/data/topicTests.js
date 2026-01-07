@@ -70,6 +70,29 @@ export const TOPIC_TEST = [
   },
 ];
 
+// NEW: Simplification logic - reduces complexity but keeps total count exact
+export function getSimplifiedQuestions(questions, subject) {
+  return questions.map((q, index) => {
+    if (subject === "maths") {
+      // Logic: Convert complex math to basic addition/identity
+      return { 
+        ...q, 
+        question: `Basic Task ${index + 1}: ${index + 1} + 1 = ?`, 
+        options: [`${index + 2}`, `${index + 5}`, "0", "10"], 
+        answer: `${index + 2}` 
+      };
+    } else {
+      // Logic: Simplify Science to Yes/No or Basic Identification
+      return { 
+        ...q, 
+        question: `Simple Science: Is a ${q.answer} something we can see?`, 
+        options: ["Yes", "No", "Maybe", "Never"], 
+        answer: "Yes" 
+      };
+    }
+  });
+}
+
 export function evaluateTopicTest(questions, answers) {
   let correct = 0;
   questions.forEach((q, i) => {

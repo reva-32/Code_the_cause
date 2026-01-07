@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { TOPIC_TEST, evaluateTopicTest } from "../../data/topicTests";
+import { TOPIC_TEST, evaluateTopicTest, getSimplifiedQuestions } from "../../data/topicTests";
 
 export default function TopicTest() {
   const navigate = useNavigate();
@@ -15,11 +15,8 @@ export default function TopicTest() {
   const [score, setScore] = useState(0);
   const [subject, setSubject] = useState("");
 
-  const isBlind = student?.disability === "blind";
-  const isADHD = student?.disability === "adhd";
-
   const speak = (text) => {
-    if (!window.speechSynthesis || !isBlind) return;
+    if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 0.9;
@@ -27,36 +24,49 @@ export default function TopicTest() {
     window.speechSynthesis.speak(u);
   };
 
-  // 1. INITIAL SETUP
   useEffect(() => {
     const name = localStorage.getItem("loggedInStudent");
     const students = JSON.parse(localStorage.getItem("students")) || [];
     const s = students.find((x) => x.name === name);
+    
     if (!s) return navigate("/");
 
     const sub = location.state?.subject || (lessonId.includes("maths") ? "maths" : "science");
+    const currentLevel = s.levels[sub].replace(/\s/g, "").toLowerCase();
+    
     const test = TOPIC_TEST.find(t =>
       t.subject === sub &&
-      t.level.replace(/\s/g, "").toLowerCase() === s.levels[sub].replace(/\s/g, "").toLowerCase()
+      t.level.replace(/\s/g, "").toLowerCase() === currentLevel
     );
+
+    let finalQuestions = test?.questions || [];
+
+    const fails = s.failAttempts?.[lessonId] || 0;
+    const adminSimplified = s.activeIntervention === "SIMPLIFY_CONTENT" && 
+                           (s.interventionSubject === sub || s.interventionSubject === "all");
+
+    if (fails >= 1 || adminSimplified) {
+      finalQuestions = getSimplifiedQuestions(finalQuestions, sub);
+    }
 
     setStudent(s);
     setSubject(sub);
-    setQuestions(test?.questions || []);
+    setQuestions(finalQuestions);
 
-    if (s.disability === "blind") {
-      speak(`Test started. Press 1, 2, 3 or 4 to select options. Press Enter to go to next question. Press R to hear question again.`);
+    if (s.disability === "blind" || s.disability === "Visually Impaired") {
+      speak(`Test started for ${sub}. ${adminSimplified ? "Simple mode is active." : ""} Press 1 to 4 for options. Enter for next. R to repeat.`);
     }
-  }, [lessonId]);
+  }, [lessonId, navigate, location.state]);
 
   const q = questions[currentQuestionIndex];
+  const isBlind = student?.disability === "blind" || student?.disability === "Visually Impaired";
+  const isADHD = student?.disability === "adhd";
 
-  // 2. AUTO-READ ON NEW QUESTION
   useEffect(() => {
     if (isBlind && q && !submitted) {
       handleReadQuestion();
     }
-  }, [currentQuestionIndex, questions, isBlind]);
+  }, [currentQuestionIndex, questions, isBlind, submitted]);
 
   const handleReadQuestion = () => {
     if (!q) return;
@@ -66,7 +76,7 @@ export default function TopicTest() {
 
   const handleOptionSelect = (opt, index) => {
     setAnswers({ ...answers, [currentQuestionIndex]: opt });
-    speak(`Option ${index + 1} selected.`);
+    if (isBlind) speak(`Option ${index + 1} selected.`);
   };
 
   const nextQuestion = () => {
@@ -86,61 +96,77 @@ export default function TopicTest() {
     const updated = students.map(s => {
       if (s.name === student.name) {
         const completed = s.completedLessons || [];
-        if (!completed.includes(lessonId)) completed.push(lessonId);
-        return { ...s, completedLessons: completed };
+        if (result >= 35 && !completed.includes(lessonId)) completed.push(lessonId);
+
+        let failMap = s.failAttempts || {};
+        let currentFails = failMap[lessonId] || 0;
+
+        if (result < 35) {
+          currentFails += 1;
+          if (currentFails >= 2) {
+            const alerts = JSON.parse(localStorage.getItem("system_alerts")) || [];
+            alerts.push({
+              id: Date.now(),
+              studentName: s.name,
+              lessonId,
+              subject: subject,
+              issue: `${subject}_fail`, // Formatted for Admin split logic
+              type: "RED_ALERT",
+              status: "pending_admin"
+            });
+            localStorage.setItem("system_alerts", JSON.stringify(alerts));
+          }
+        } else {
+          currentFails = 0; 
+        }
+
+        let newLevels = { ...s.levels };
+        if (result >= 90) {
+          const currentNum = parseInt(s.levels[subject].replace(/\D/g, ""));
+          if (!isNaN(currentNum)) newLevels[subject] = `Class ${currentNum + 1}`;
+        }
+
+        return { ...s, completedLessons: completed, levels: newLevels, failAttempts: { ...failMap, [lessonId]: currentFails } };
       }
       return s;
     });
+
     localStorage.setItem("students", JSON.stringify(updated));
-    speak(`Test submitted. Your score is ${result} percent. Press Enter to go back to dashboard.`);
+    if (isBlind) speak(`Test submitted. Your score is ${result} percent. Press Enter to go back.`);
   };
 
-  /* ================= 3. KEYBOARD SHORTCUTS LOGIC ================= */
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!isBlind || submitted) return;
-
-      // Select Option (1, 2, 3, 4)
       if (["1", "2", "3", "4"].includes(e.key)) {
         const idx = parseInt(e.key) - 1;
-        if (q?.options[idx]) {
-          handleOptionSelect(q.options[idx], idx);
-        }
+        if (q?.options[idx]) handleOptionSelect(q.options[idx], idx);
       }
-
-      // Next Question / Submit (Enter)
       if (e.key === "Enter") {
-        if (answers[currentQuestionIndex]) {
-          nextQuestion();
-        } else {
-          speak("Please select an option first.");
-        }
+        if (answers[currentQuestionIndex]) nextQuestion();
+        else speak("Select an option first.");
       }
-
-      // Replay Question (R)
-      if (e.key.toLowerCase() === "r") {
-        handleReadQuestion();
-      }
+      if (e.key.toLowerCase() === "r") handleReadQuestion();
     };
-
-    // Global listener for results screen shortcut
-    const handleResultEnter = (e) => {
-      if (submitted && e.key === "Enter") navigate("/student/dashboard");
-    };
-
+    const handleResultEnter = (e) => { if (submitted && e.key === "Enter") navigate("/student/dashboard"); };
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keydown", handleResultEnter);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keydown", handleResultEnter);
-    };
+    return () => { window.removeEventListener("keydown", handleKeyDown); window.removeEventListener("keydown", handleResultEnter); };
   }, [isBlind, q, answers, currentQuestionIndex, submitted]);
 
   if (!student) return null;
 
-  /* ================= 4. RENDER ================= */
+  const showBadge = student.activeIntervention === "SIMPLIFY_CONTENT" && 
+                    (student.interventionSubject === subject || student.interventionSubject === "all");
+
   return (
     <div style={{ maxWidth: "800px", margin: "40px auto", padding: "20px", fontFamily: "'Inter', sans-serif" }}>
+      {showBadge && !submitted && (
+        <div style={{ background: "#ecfeff", color: "#0891b2", padding: "10px 20px", borderRadius: "12px", marginBottom: "15px", fontWeight: "bold", border: "1px solid #0891b2" }}>
+          ✨ {subject === "maths" ? "Simple Maths Mode Active" : "Simplified Science Questions Active"}
+        </div>
+      )}
+
       {!submitted ? (
         <div style={{
           background: "#fff",
@@ -149,11 +175,9 @@ export default function TopicTest() {
           boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
           border: isADHD ? "3px solid #065f46" : "1px solid #f1f5f9"
         }}>
-
-          {/* Progress Bar */}
           <div style={{ marginBottom: "30px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", fontWeight: "bold", color: "#64748b", marginBottom: "10px" }}>
-              <span>{subject.toUpperCase()} QUIZ</span>
+              <span>{subject.toUpperCase()} QUIZ - {student.levels[subject]}</span>
               <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
             </div>
             <div style={{ height: "8px", background: "#f1f5f9", borderRadius: "10px", overflow: "hidden" }}>
@@ -167,26 +191,15 @@ export default function TopicTest() {
           {q && (
             <div>
               <div style={{ display: "flex", alignItems: "flex-start", gap: "15px", marginBottom: "25px" }}>
-                {isBlind && (
-                  <button onClick={handleReadQuestion} title="Read Question Aloud (R)" style={styles.audioIconBtn}>🔊</button>
-                )}
-                <h2 style={{ fontSize: isADHD ? "26px" : "22px", color: "#1e293b", margin: 0, lineHeight: "1.4" }}>
-                  {q.question}
-                </h2>
+                {isBlind && <button onClick={handleReadQuestion} style={styles.audioIconBtn}>🔊</button>}
+                <h2 style={{ fontSize: isADHD ? "26px" : "22px", color: "#1e293b", margin: 0, lineHeight: "1.4" }}>{q.question}</h2>
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 {q.options.map((opt, index) => {
                   const isSelected = answers[currentQuestionIndex] === opt;
                   return (
-                    <button
-                      key={opt}
-                      onClick={() => handleOptionSelect(opt, index)}
-                      style={{
-                        ...styles.optionBtn(isSelected),
-                        fontSize: isADHD ? "18px" : "16px"
-                      }}
-                    >
+                    <button key={opt} onClick={() => handleOptionSelect(opt, index)} style={{ ...styles.optionBtn(isSelected), fontSize: isADHD ? "18px" : "16px" }}>
                       <div style={styles.radioCircle(isSelected)} />
                       <span style={{ fontWeight: "bold", marginRight: "10px" }}>{index + 1}.</span> {opt}
                     </button>
@@ -195,38 +208,23 @@ export default function TopicTest() {
               </div>
 
               <div style={{ marginTop: "40px", display: "flex", justifyContent: "flex-end" }}>
-                {currentQuestionIndex < questions.length - 1 ? (
-                  <button
-                    disabled={!answers[currentQuestionIndex]}
-                    onClick={nextQuestion}
-                    style={styles.navBtn(!!answers[currentQuestionIndex])}
-                  >
-                    Next Question (Enter) ➔
-                  </button>
-                ) : (
-                  <button
-                    disabled={Object.keys(answers).length < questions.length}
-                    onClick={handleSubmit}
-                    style={styles.submitBtn(Object.keys(answers).length === questions.length)}
-                  >
-                    Submit Test (Enter) 🏁
-                  </button>
-                )}
+                <button 
+                  disabled={!answers[currentQuestionIndex]} 
+                  onClick={nextQuestion} 
+                  style={styles.submitBtn(!!answers[currentQuestionIndex])}
+                >
+                  {currentQuestionIndex < questions.length - 1 ? "Next Question ➔" : "Submit Test 🏁"}
+                </button>
               </div>
             </div>
           )}
         </div>
       ) : (
         <div style={{ textAlign: "center", padding: "50px", background: "#fff", borderRadius: "24px" }}>
-          <div style={{ fontSize: "60px", marginBottom: "20px" }}>{score >= 50 ? "🎉" : "📚"}</div>
+          <div style={{ fontSize: "60px", marginBottom: "20px" }}>{score >= 35 ? "🎉" : "📚"}</div>
           <h1 style={{ fontSize: "40px", color: "#1e293b" }}>{score}%</h1>
-          <p>Test Completed Successfully!</p>
-          <button
-            onClick={() => navigate("/student/dashboard")}
-            style={{ padding: "15px 40px", borderRadius: "12px", background: "#065f46", color: "white", border: "none", fontWeight: "bold", cursor: "pointer" }}
-          >
-            Back to Dashboard (Enter)
-          </button>
+          <p>{score >= 35 ? "Great job!" : "Keep practicing, you can do it!"}</p>
+          <button onClick={() => navigate("/student/dashboard")} style={styles.finalBtn}>Back to Dashboard</button>
         </div>
       )}
     </div>
@@ -241,16 +239,7 @@ const styles = {
     background: isSelected ? "#f0fdf4" : "#fff",
     cursor: "pointer", display: "flex", alignItems: "center", gap: "15px", transition: "all 0.2s"
   }),
-  radioCircle: (isSelected) => ({
-    width: "20px", height: "20px", borderRadius: "50%",
-    border: isSelected ? "6px solid #10b981" : "2px solid #cbd5e1"
-  }),
-  navBtn: (ready) => ({
-    padding: "16px 35px", background: ready ? "#065f46" : "#cbd5e1", color: "#fff",
-    border: "none", borderRadius: "12px", fontWeight: "800", cursor: ready ? "pointer" : "not-allowed"
-  }),
-  submitBtn: (ready) => ({
-    padding: "16px 35px", background: ready ? "#10b981" : "#cbd5e1", color: "#fff",
-    border: "none", borderRadius: "12px", fontWeight: "800", cursor: ready ? "pointer" : "not-allowed"
-  })
+  radioCircle: (isSelected) => ({ width: "20px", height: "20px", borderRadius: "50%", border: isSelected ? "6px solid #10b981" : "2px solid #cbd5e1" }),
+  submitBtn: (ready) => ({ padding: "16px 35px", background: ready ? "#065f46" : "#cbd5e1", color: "#fff", border: "none", borderRadius: "12px", fontWeight: "800", cursor: ready ? "pointer" : "not-allowed" }),
+  finalBtn: { padding: "15px 40px", borderRadius: "12px", background: "#065f46", color: "white", border: "none", fontWeight: "bold", cursor: "pointer", marginTop: "20px" }
 };

@@ -123,7 +123,7 @@ export default function App() {
 
         {/* STUDENT ROUTES */}
         <Route path="/student/login" element={<StudentLogin />} />
-        <Route path="/student/mental-health" element={<ProtectedStudent><MentalHealthForm /></ProtectedStudent>} />
+        <Route path="/student/wellness-check" element={<ProtectedStudent><MentalHealthForm /></ProtectedStudent>} />
         <Route path="/student/dashboard" element={<ProtectedStudent><StudentDashboard /></ProtectedStudent>} />
         <Route path="/student/progress" element={<ProtectedStudent><StudentProgress /></ProtectedStudent>} />
         <Route path="/student/lessons" element={<ProtectedStudent><Lessons /></ProtectedStudent>} />

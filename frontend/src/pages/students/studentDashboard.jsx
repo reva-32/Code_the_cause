@@ -278,7 +278,19 @@ export default function StudentDashboard() {
 
             {/* RIGHT SECTION: PROGRESS TOP, CHATBOT BOTTOM */}
             <div style={styles.rightSidebar}>
-
+              {/* --- NEW: WELLNESS NOTIFICATION BUTTON --- */}
+              {showWellnessBtn && (
+                <button 
+                  onClick={() => navigate("/student/wellness-check")}
+                  style={styles.wellnessBanner}
+                >
+                  <span style={{ fontSize: "20px" }}>🌿</span>
+                  <div style={{ textAlign: "left" }}>
+                    <div style={{ fontWeight: "bold" }}>{t.wellnessBtn}</div>
+                    <div style={{ fontSize: "12px", opacity: 0.9 }}>It's time for your weekly check-in!</div>
+                  </div>
+                </button>
+              )}
               {/* Progress Bars (Stacked one below the other) */}
               {student && student.levels && (
                 <div style={styles.progressContainer}>
@@ -332,7 +344,7 @@ const styles = {
 
   // Container to hold Progress + Chatbot vertically
   rightSidebar: { display: "flex", flexDirection: "column", gap: "20px", height: "100%" },
-
+  
   // Progress Container
   progressContainer: { background: "#fff", borderRadius: "24px", padding: "20px", boxShadow: "0 2px 10px rgba(0,0,0,0.05)" },
 
