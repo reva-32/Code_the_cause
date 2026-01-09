@@ -5,130 +5,155 @@ import { addMentalHealthEntry } from "../../utils/healthStorage";
 export default function MentalHealthForm() {
     const navigate = useNavigate();
     const [studentName, setStudentName] = useState("");
+    const [isBlind, setIsBlind] = useState(false);
 
     const [formData, setFormData] = useState({
         mood: 3,
         stress: 3,
         sleep: 3,
         energy: 3,
-        focus: 3,
         social: "Sometimes",
-        worry: "Not at all",
         note: ""
     });
 
+    /* ================= 1. EMPATHETIC VOICE ENGINE ================= */
+    const speak = (text) => {
+        if (!window.speechSynthesis) return;
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        const voices = window.speechSynthesis.getVoices();
+
+        // Exact Indian Female Voice selection logic from Dashboard
+        const indianFemale = voices.find(v =>
+            (v.lang.includes("en-IN") || v.lang.includes("hi-IN")) &&
+            (v.name.toLowerCase().includes("female") || v.name.toLowerCase().includes("google"))
+        );
+
+        if (indianFemale) {
+            utterance.voice = indianFemale;
+        }
+        
+        utterance.rate = 0.85; // Slightly slower for a comforting tone
+        utterance.pitch = 1.0; 
+        window.speechSynthesis.speak(utterance);
+    };
+
     useEffect(() => {
+        const loadVoices = () => window.speechSynthesis.getVoices();
+        loadVoices();
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+
         const name = localStorage.getItem("loggedInStudent");
-        // Ensure the student is logged in, otherwise send to login
+        const students = JSON.parse(localStorage.getItem("students")) || [];
+        const loggedIn = students.find((s) => s.name === name);
+
         if (!name) {
             navigate("/student/login");
         } else {
             setStudentName(name);
+            const blindStatus = loggedIn?.disability?.toLowerCase() === "blind" || 
+                               loggedIn?.disability?.toLowerCase() === "visually impaired";
+            setIsBlind(blindStatus);
+
+            if (blindStatus) {
+                setTimeout(() => {
+                    speak(`Hello ${name}. I am here to check in on you. Let's take a moment to see how you are feeling. 
+                    Press the Tab key to hear the first question. 
+                    You can use your Left and Right arrow keys to tell me how you feel on a scale of 1 to 5.`);
+                }, 1000);
+            }
         }
     }, [navigate]);
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-
-        const entry = {
-            ...formData,
-            timestamp: new Date().toISOString()
-        };
-
-        // Save to LocalStorage via your utility
-        addMentalHealthEntry(studentName, entry);
-
-        alert("Thank you! Your wellness check-in is complete.");
-
-        // MATCHING THE ROUTE IN App.js EXACTLY
-        navigate("/student/dashboard");
+    /* ================= 2. COMFORTING HANDLERS ================= */
+    const getComfortingFeedback = (id, value) => {
+        const val = parseInt(value);
+        if (id === "mood") {
+            if (val <= 2) return `I'm sorry you're feeling down. I've noted that.`;
+            if (val === 3) return `Got it, you're feeling okay today.`;
+            return `That's wonderful to hear that you're feeling happy!`;
+        }
+        if (id === "stress") {
+            if (val >= 4) return `I understand things feel a bit heavy right now. I've noted your stress level.`;
+            return `It's good to hear you're feeling relatively calm.`;
+        }
+        return `I've updated that for you.`;
     };
 
-    // Styles to match your Student Dashboard aesthetic
+    const handleRatingChange = (id, label, value) => {
+        setFormData({ ...formData, [id]: parseInt(value) });
+        if (isBlind) {
+            const feedback = getComfortingFeedback(id, value);
+            speak(feedback);
+        }
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        const entry = { ...formData, timestamp: new Date().toISOString() };
+        addMentalHealthEntry(studentName, entry);
+
+        if (isBlind) {
+            speak(`Thank you for sharing with me, ${studentName}. Your wellness check is saved. Sending you back to your dashboard now.`);
+            setTimeout(() => navigate("/student/dashboard"), 3500);
+        } else {
+            navigate("/student/dashboard");
+        }
+    };
+
+    /* ================= 3. STYLES ================= */
     const styles = {
-        page: { backgroundColor: "#f0fdf4", minHeight: "100vh", padding: "40px 20px", fontFamily: "sans-serif" },
-        container: { maxWidth: "650px", margin: "0 auto", background: "#fff", padding: "40px", borderRadius: "24px", boxShadow: "0 10px 25px rgba(0,0,0,0.05)" },
-        qBox: { marginBottom: "25px", paddingBottom: "15px", borderBottom: "1px solid #f1f5f9" },
-        label: { display: "block", fontWeight: "bold", marginBottom: "10px", color: "#0f172a" },
-        inputGroup: { display: "flex", flexDirection: "column", gap: "5px" },
-        range: { width: "100%", accentColor: "#065f46", cursor: "pointer" },
-        select: { width: "100%", padding: "10px", borderRadius: "10px", border: "1px solid #e2e8f0", outline: "none" },
-        submitBtn: { width: "100%", padding: "15px", background: "#065f46", color: "#fff", border: "none", borderRadius: "12px", fontWeight: "bold", cursor: "pointer", marginTop: "20px" },
-        backBtn: { background: "none", border: "none", color: "#065f46", cursor: "pointer", fontWeight: "bold", marginBottom: "20px", padding: 0 }
+        page: { backgroundColor: "#f0fdf4", minHeight: "100vh", padding: "40px 20px" },
+        container: { maxWidth: "600px", margin: "0 auto", background: "#fff", padding: "40px", borderRadius: "30px", boxShadow: "0 10px 30px rgba(0,0,0,0.05)" },
+        qBox: { marginBottom: "25px", padding: "20px", borderRadius: "20px", background: "#f8fafc" },
+        label: { display: "block", fontWeight: "bold", marginBottom: "10px", color: "#065f46" },
+        range: { width: "100%", accentColor: "#065f46", height: "20px" },
+        submitBtn: { width: "100%", padding: "18px", background: "#065f46", color: "#fff", border: "none", borderRadius: "15px", fontWeight: "bold", cursor: "pointer", fontSize: "17px" }
     };
 
     return (
         <div style={styles.page}>
             <div style={styles.container}>
-                <button onClick={() => navigate("/student/dashboard")} style={styles.backBtn}>
-                    ← Back to Dashboard
-                </button>
-
-                <h2 style={{ color: "#065f46", marginTop: 0 }}>Weekly Wellness Check-in 🌿</h2>
-                <p style={{ color: "#64748b", marginBottom: "30px" }}>
-                    Hi <b>{studentName}</b>, how has your week been?
-                </p>
-
+                <header style={{ textAlign: "center", marginBottom: "30px" }}>
+                    <h2 style={{ color: "#065f46" }}>Wellness Check-in</h2>
+                    <p style={{ color: "#64748b" }}>How are you today, <b>{studentName}</b>?</p>
+                </header>
+                
                 <form onSubmit={handleSubmit}>
-                    {/* Questions 1-5: Range Scale */}
                     {[
-                        { id: "mood", label: "1. Overall Mood (Very Sad to Very Happy)", labels: ["😢", "😊"] },
-                        { id: "stress", label: "2. Stress Level (Low to High)", labels: ["😌", "😫"] },
-                        { id: "sleep", label: "3. Sleep Quality (Poor to Good)", labels: ["😴", "✨"] },
-                        { id: "energy", label: "4. Energy Levels (Tired to Energetic)", labels: ["🪫", "🔋"] },
-                        { id: "focus", label: "5. Focus on Studies (Difficult to Easy)", labels: ["🌀", "🎯"] },
+                        { id: "mood", label: "How is your mood today?", sub: "1: Sad, 5: Happy" },
+                        { id: "stress", label: "How is your stress level?", sub: "1: Low, 5: High" },
+                        { id: "sleep", label: "How was your sleep?", sub: "1: Poor, 5: Great" },
                     ].map((q) => (
                         <div key={q.id} style={styles.qBox}>
                             <label style={styles.label}>{q.label}</label>
-                            <div style={styles.inputGroup}>
-                                <input
-                                    type="range" min="1" max="5"
-                                    style={styles.range}
-                                    value={formData[q.id]}
-                                    onChange={(e) => setFormData({ ...formData, [q.id]: parseInt(e.target.value) })}
-                                />
-                                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "18px" }}>
-                                    <span>{q.labels[0]}</span><span>{q.labels[1]}</span>
-                                </div>
-                            </div>
+                            <input
+                                type="range" min="1" max="5"
+                                style={styles.range}
+                                value={formData[q.id]}
+                                onFocus={() => isBlind && speak(`${q.label}. Use arrows to choose. 1 is ${q.sub.split(',')[0].split(':')[1]}, 5 is ${q.sub.split(',')[1]}`)}
+                                onChange={(e) => handleRatingChange(q.id, q.label, e.target.value)}
+                            />
                         </div>
                     ))}
 
-                    {/* Question 6: Social */}
                     <div style={styles.qBox}>
-                        <label style={styles.label}>6. Comfortable talking to others?</label>
-                        <select style={styles.select} value={formData.social} onChange={(e) => setFormData({ ...formData, social: e.target.value })}>
-                            <option>Yes, most of the time</option>
-                            <option>Sometimes</option>
-                            <option>Rarely</option>
-                            <option>Not at all</option>
-                        </select>
-                    </div>
-
-                    {/* Question 7: Worry */}
-                    <div style={styles.qBox}>
-                        <label style={styles.label}>7. Felt worried or sad often?</label>
-                        <select style={styles.select} value={formData.worry} onChange={(e) => setFormData({ ...formData, worry: e.target.value })}>
-                            <option>Not at all</option>
-                            <option>A little</option>
-                            <option>Sometimes</option>
-                            <option>Often</option>
-                        </select>
-                    </div>
-
-                    {/* Question 8: Note */}
-                    <div style={{ marginBottom: "20px" }}>
-                        <label style={styles.label}>8. Anything else on your mind? (Optional)</label>
+                        <label style={styles.label}>Anything else you want to share?</label>
                         <textarea
-                            style={{ ...styles.select, minHeight: "80px", resize: "none" }}
-                            placeholder="Write here..."
+                            style={{ width: "100%", padding: "10px", borderRadius: "10px", border: "1px solid #ccc", minHeight: "80px" }}
                             value={formData.note}
+                            onFocus={() => isBlind && speak("Do you want to type any other notes for your teacher?")}
                             onChange={(e) => setFormData({ ...formData, note: e.target.value })}
                         />
                     </div>
 
-                    <button type="submit" style={styles.submitBtn}>
-                        Complete Wellness Check
+                    <button 
+                        type="submit" 
+                        style={styles.submitBtn}
+                        onFocus={() => isBlind && speak("Submit your wellness check.")}
+                    >
+                        Save & Continue 🌿
                     </button>
                 </form>
             </div>

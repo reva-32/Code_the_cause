@@ -15,16 +15,35 @@ export default function TopicTest() {
   const [score, setScore] = useState(0);
   const [subject, setSubject] = useState("");
 
+  /* ================= 1. THE SHARED FEMALE VOICE ENGINE ================= */
   const speak = (text) => {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = 0.9;
-    u.lang = "en-IN";
-    window.speechSynthesis.speak(u);
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    const voices = window.speechSynthesis.getVoices();
+
+    // Exact logic from StudentDashboard and Wellness Form
+    const indianFemale = voices.find(v =>
+      (v.lang.includes("en-IN") || v.lang.includes("hi-IN")) &&
+      (v.name.toLowerCase().includes("female") || v.name.toLowerCase().includes("google") || v.name.toLowerCase().includes("heera"))
+    );
+
+    if (indianFemale) {
+      utterance.voice = indianFemale;
+    }
+
+    utterance.rate = 0.85; // Comforting, clear pace for testing
+    utterance.pitch = 1.0; 
+    window.speechSynthesis.speak(utterance);
   };
 
   useEffect(() => {
+    // Ensure voices load for the engine
+    const loadVoices = () => window.speechSynthesis.getVoices();
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+
     const name = localStorage.getItem("loggedInStudent");
     const students = JSON.parse(localStorage.getItem("students")) || [];
     const s = students.find((x) => x.name === name);
@@ -40,7 +59,6 @@ export default function TopicTest() {
     );
 
     let finalQuestions = test?.questions || [];
-
     const fails = s.failAttempts?.[lessonId] || 0;
     const adminSimplified = s.activeIntervention === "SIMPLIFY_CONTENT" && 
                            (s.interventionSubject === sub || s.interventionSubject === "all");
@@ -53,14 +71,17 @@ export default function TopicTest() {
     setSubject(sub);
     setQuestions(finalQuestions);
 
-    if (s.disability === "blind" || s.disability === "Visually Impaired") {
-      speak(`Test started for ${sub}. ${adminSimplified ? "Simple mode is active." : ""} Press 1 to 4 for options. Enter for next. R to repeat.`);
+    const isBlindUser = s.disability?.toLowerCase() === "blind" || s.disability?.toLowerCase() === "visually impaired";
+    if (isBlindUser) {
+      speak(`Hello ${s.name}. Let's start your ${sub} test. ${adminSimplified ? "I have made the questions easier for you." : ""} 
+      You can press 1, 2, 3, or 4 to pick an answer. Press Enter to go to the next question. 
+      If you want me to repeat the question, press R.`);
     }
   }, [lessonId, navigate, location.state]);
 
   const q = questions[currentQuestionIndex];
-  const isBlind = student?.disability === "blind" || student?.disability === "Visually Impaired";
-  const isADHD = student?.disability === "adhd";
+  const isBlind = student?.disability?.toLowerCase() === "blind" || student?.disability?.toLowerCase() === "visually impaired";
+  const isADHD = student?.disability?.toLowerCase() === "adhd";
 
   useEffect(() => {
     if (isBlind && q && !submitted) {
@@ -71,12 +92,12 @@ export default function TopicTest() {
   const handleReadQuestion = () => {
     if (!q) return;
     const optionsText = q.options.map((opt, i) => `Option ${i + 1}: ${opt}`).join(". ");
-    speak(`Question ${currentQuestionIndex + 1}: ${q.question}. ${optionsText}`);
+    speak(`Question ${currentQuestionIndex + 1}. ${q.question}. ${optionsText}`);
   };
 
   const handleOptionSelect = (opt, index) => {
     setAnswers({ ...answers, [currentQuestionIndex]: opt });
-    if (isBlind) speak(`Option ${index + 1} selected.`);
+    if (isBlind) speak(`Option ${index + 1} chosen.`);
   };
 
   const nextQuestion = () => {
@@ -110,7 +131,7 @@ export default function TopicTest() {
               studentName: s.name,
               lessonId,
               subject: subject,
-              issue: `${subject}_fail`, // Formatted for Admin split logic
+              issue: `${subject}_fail`,
               type: "RED_ALERT",
               status: "pending_admin"
             });
@@ -132,9 +153,13 @@ export default function TopicTest() {
     });
 
     localStorage.setItem("students", JSON.stringify(updated));
-    if (isBlind) speak(`Test submitted. Your score is ${result} percent. Press Enter to go back.`);
+    if (isBlind) {
+        const feedback = result >= 35 ? "Great job! You passed." : "You did your best. Let's practice some more later.";
+        speak(`Test complete. ${feedback} Your score is ${result} percent. Press Enter to go back to your dashboard.`);
+    }
   };
 
+  /* ================= 2. KEYBOARD CONTROLS ================= */
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!isBlind || submitted) return;
@@ -144,14 +169,21 @@ export default function TopicTest() {
       }
       if (e.key === "Enter") {
         if (answers[currentQuestionIndex]) nextQuestion();
-        else speak("Select an option first.");
+        else speak("Please pick an answer first.");
       }
       if (e.key.toLowerCase() === "r") handleReadQuestion();
     };
-    const handleResultEnter = (e) => { if (submitted && e.key === "Enter") navigate("/student/dashboard"); };
+
+    const handleResultEnter = (e) => { 
+        if (submitted && e.key === "Enter") navigate("/student/dashboard"); 
+    };
+
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keydown", handleResultEnter);
-    return () => { window.removeEventListener("keydown", handleKeyDown); window.removeEventListener("keydown", handleResultEnter); };
+    return () => { 
+        window.removeEventListener("keydown", handleKeyDown); 
+        window.removeEventListener("keydown", handleResultEnter); 
+    };
   }, [isBlind, q, answers, currentQuestionIndex, submitted]);
 
   if (!student) return null;
@@ -162,8 +194,8 @@ export default function TopicTest() {
   return (
     <div style={{ maxWidth: "800px", margin: "40px auto", padding: "20px", fontFamily: "'Inter', sans-serif" }}>
       {showBadge && !submitted && (
-        <div style={{ background: "#ecfeff", color: "#0891b2", padding: "10px 20px", borderRadius: "12px", marginBottom: "15px", fontWeight: "bold", border: "1px solid #0891b2" }}>
-          ✨ {subject === "maths" ? "Simple Maths Mode Active" : "Simplified Science Questions Active"}
+        <div style={{ background: "#ecfeff", color: "#0891b2", padding: "15px 20px", borderRadius: "12px", marginBottom: "15px", fontWeight: "bold", border: "1px solid #0891b2", textAlign: 'center' }}>
+          ✨ Simplified Mode Active: Questions are tailored for you!
         </div>
       )}
 
@@ -191,7 +223,7 @@ export default function TopicTest() {
           {q && (
             <div>
               <div style={{ display: "flex", alignItems: "flex-start", gap: "15px", marginBottom: "25px" }}>
-                {isBlind && <button onClick={handleReadQuestion} style={styles.audioIconBtn}>🔊</button>}
+                {isBlind && <button onClick={handleReadQuestion} style={styles.audioIconBtn} title="Repeat Question">🔊</button>}
                 <h2 style={{ fontSize: isADHD ? "26px" : "22px", color: "#1e293b", margin: 0, lineHeight: "1.4" }}>{q.question}</h2>
               </div>
 
@@ -199,7 +231,12 @@ export default function TopicTest() {
                 {q.options.map((opt, index) => {
                   const isSelected = answers[currentQuestionIndex] === opt;
                   return (
-                    <button key={opt} onClick={() => handleOptionSelect(opt, index)} style={{ ...styles.optionBtn(isSelected), fontSize: isADHD ? "18px" : "16px" }}>
+                    <button 
+                        key={opt} 
+                        onClick={() => handleOptionSelect(opt, index)} 
+                        style={{ ...styles.optionBtn(isSelected), fontSize: isADHD ? "18px" : "16px" }}
+                        aria-label={`Option ${index + 1}: ${opt}`}
+                    >
                       <div style={styles.radioCircle(isSelected)} />
                       <span style={{ fontWeight: "bold", marginRight: "10px" }}>{index + 1}.</span> {opt}
                     </button>
@@ -220,10 +257,10 @@ export default function TopicTest() {
           )}
         </div>
       ) : (
-        <div style={{ textAlign: "center", padding: "50px", background: "#fff", borderRadius: "24px" }}>
+        <div style={{ textAlign: "center", padding: "50px", background: "#fff", borderRadius: "24px", boxShadow: "0 10px 30px rgba(0,0,0,0.05)" }}>
           <div style={{ fontSize: "60px", marginBottom: "20px" }}>{score >= 35 ? "🎉" : "📚"}</div>
-          <h1 style={{ fontSize: "40px", color: "#1e293b" }}>{score}%</h1>
-          <p>{score >= 35 ? "Great job!" : "Keep practicing, you can do it!"}</p>
+          <h1 style={{ fontSize: "40px", color: "#1e293b", margin: "10px 0" }}>{score}%</h1>
+          <p style={{ color: "#64748b", fontSize: "18px" }}>{score >= 35 ? "Great job, Rose!" : "Keep practicing, you can do it!"}</p>
           <button onClick={() => navigate("/student/dashboard")} style={styles.finalBtn}>Back to Dashboard</button>
         </div>
       )}
@@ -232,14 +269,14 @@ export default function TopicTest() {
 }
 
 const styles = {
-  audioIconBtn: { background: "#f1f5f9", border: "none", borderRadius: "12px", padding: "10px 15px", fontSize: "20px", cursor: "pointer" },
+  audioIconBtn: { background: "#f1f5f9", border: "none", borderRadius: "12px", padding: "10px 15px", fontSize: "20px", cursor: "pointer", display: 'flex', alignItems: 'center', justifyContent: 'center' },
   optionBtn: (isSelected) => ({
     padding: "18px", textAlign: "left", borderRadius: "15px", outline: "none",
     border: isSelected ? "2px solid #10b981" : "2px solid #f1f5f9",
     background: isSelected ? "#f0fdf4" : "#fff",
     cursor: "pointer", display: "flex", alignItems: "center", gap: "15px", transition: "all 0.2s"
   }),
-  radioCircle: (isSelected) => ({ width: "20px", height: "20px", borderRadius: "50%", border: isSelected ? "6px solid #10b981" : "2px solid #cbd5e1" }),
+  radioCircle: (isSelected) => ({ width: "20px", height: "20px", borderRadius: "50%", border: isSelected ? "6px solid #10b981" : "2px solid #cbd5e1", background: "#fff" }),
   submitBtn: (ready) => ({ padding: "16px 35px", background: ready ? "#065f46" : "#cbd5e1", color: "#fff", border: "none", borderRadius: "12px", fontWeight: "800", cursor: ready ? "pointer" : "not-allowed" }),
-  finalBtn: { padding: "15px 40px", borderRadius: "12px", background: "#065f46", color: "white", border: "none", fontWeight: "bold", cursor: "pointer", marginTop: "20px" }
+  finalBtn: { padding: "15px 40px", borderRadius: "12px", background: "#065f46", color: "white", border: "none", fontWeight: "bold", cursor: "pointer", marginTop: "20px", fontSize: '16px' }
 };

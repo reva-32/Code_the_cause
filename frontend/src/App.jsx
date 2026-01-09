@@ -24,6 +24,7 @@ import StudentProgressPage from "./pages/guardian/StudentProgressPage";
 import StudentMedicalProfile from "./pages/guardian/StudentMedicalProfile";
 import Instructions from "./pages/guardian/Instructions";
 import AdminContentUpload from "./pages/admin/adminLessonUpload";
+import HobbyHub from "./pages/students/HobbyHub";
 
 // 1. IMPORT YOUR NEW REGISTRATION PAGE
 import GuardianAddStudent from "./pages/guardian/addStudent";
@@ -128,6 +129,7 @@ export default function App() {
         <Route path="/student/lessons" element={<ProtectedStudent><Lessons /></ProtectedStudent>} />
         <Route path="/student/topic-test" element={<ProtectedStudent><TopicTest /></ProtectedStudent>} />
         <Route path="/student/test/:lessonId" element={<ProtectedStudent><TopicTest /></ProtectedStudent>} />
+        <Route path="/student/hobby-hub" element={<HobbyHub />} />
 
         {/* CATCH ALL */}
         <Route path="*" element={<Navigate to="/" />} />
