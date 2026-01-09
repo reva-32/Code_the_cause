@@ -291,6 +291,52 @@ export default function StudentDashboard() {
                   </div>
                 </button>
               )}
+                {/* Hobby Hub Button */}
+                <button
+                  onClick={() => {
+                    if (isBlind) speak("Opening Hobby Hub. Explore your interests in music, dance, and art.");
+                    navigate("/student/hobby-hub");
+                  }}
+                  style={{
+                    display: "flex",
+                    gap: "15px",
+                    alignItems: "center",
+                    background: "#f0fdf4", // Matches colors.pastelBg
+                    border: "2px solid #10b981", // Emerald Green border
+                    padding: "12px 20px",
+                    borderRadius: "15px",
+                    cursor: "pointer",
+                    marginTop: "10px",
+                    width: "100%",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+                    transition: "all 0.2s ease"
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.background = "#dcfce7";
+                    e.currentTarget.style.transform = "translateY(-2px)";
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.background = "#f0fdf4";
+                    e.currentTarget.style.transform = "translateY(0)";
+                  }}
+                >
+                  <span style={{ fontSize: "24px" }}>🎨</span>
+                  <div style={{ textAlign: "left" }}>
+                    <div style={{
+                      fontWeight: "bold",
+                      color: "#065f46", // Matches colors.primaryDeep
+                      fontSize: "16px"
+                    }}>
+                      {lang === "hi" ? "मेरा शौक केंद्र" : "My Hobby Hub"}
+                    </div>
+                    <div style={{
+                      fontSize: "12px",
+                      color: "#047857"
+                    }}>
+                      {lang === "hi" ? "वाद्ययंत्र, चित्रकला और नृत्य" : "Instruments, Drawing & Dance"}
+                    </div>
+                  </div>
+                </button>
               {/* Progress Bars (Stacked one below the other) */}
               {student && student.levels && (
                 <div style={styles.progressContainer}>
