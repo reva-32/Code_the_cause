@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import ReactMarkdown from "react-markdown";
 
 import Lessons from "./Lessons";
 import StudentProgress from "./StudentProgress";
@@ -104,9 +105,13 @@ export default function StudentDashboard() {
     if (loggedIn) {
       const processed = {
         ...loggedIn,
-        completedLessons: loggedIn.completedLessons || [],
+        // Split completion tracking
+        completedMathsLessons: loggedIn.completedMathsLessons || [],
+        completedScienceLessons: loggedIn.completedScienceLessons || [],
+        // Keep existing fields
         verifiedSummaries: loggedIn.verifiedSummaries || [],
         scores: loggedIn.scores || {},
+        // Ensure levels is an object
         levels: loggedIn.levels || { maths: "Class 1", science: "Class 1" }
       };
       setStudent(processed);
@@ -178,22 +183,36 @@ export default function StudentDashboard() {
 
   const handleCompleteLesson = (lessonId, subject, testScore = 100) => {
     const students = JSON.parse(localStorage.getItem("students")) || [];
+
     const updatedStudents = students.map((s) => {
       if (s.name === student.name) {
-        const completed = s.completedLessons || [];
-        if (!completed.includes(lessonId)) completed.push(lessonId);
-        const currentScores = s.scores || {};
-        currentScores[lessonId] = testScore;
-        return { ...s, completedLessons: completed, scores: currentScores };
+        const subKey = subject.toLowerCase();
+
+        // 1. Record completion for the specific subject
+        if (subKey === "maths") {
+          const completed = s.completedMathsLessons || [];
+          if (!completed.includes(lessonId)) completed.push(lessonId);
+          s.completedMathsLessons = completed;
+        } else {
+          const completed = s.completedScienceLessons || [];
+          if (!completed.includes(lessonId)) completed.push(lessonId);
+          s.completedScienceLessons = completed;
+        }
+
+        // 2. Save the score to the student's record
+        s.scores = { ...s.scores, [lessonId]: testScore };
+
+        // STOP: Do NOT call promoteIfEligible(s, subject, testScore) here.
+        // Regular topic tests should only save progress, not change levels.
       }
       return s;
     });
-    localStorage.setItem("students", JSON.stringify(updatedStudents));
-    setAssignmentStep("watch"); 
-    loadLatestData();
-    speak(`Lesson completed with ${testScore} percent. Moving to next topic.`);
-  };
 
+    localStorage.setItem("students", JSON.stringify(updatedStudents));
+    setAssignmentStep("watch"); // Reset UI for next lesson
+    loadLatestData(); // Refresh the dashboard state
+  };
+  
   /* ================= 4. VOICE RECOGNITION ================= */
   const startListening = () => {
     if (isListening) return;
@@ -279,13 +298,20 @@ export default function StudentDashboard() {
   return (
     <div style={{ backgroundColor: colors.pastelBg, minHeight: "100vh", padding: "20px" }}>
       <div style={{ maxWidth: "1400px", margin: "0 auto", fontFamily: "Inter, sans-serif" }}>
-        
+
+        {/* NAVIGATION BAR */}
         <nav style={styles.nav}>
           <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
             <div style={{ fontSize: "26px", fontWeight: "900", color: colors.primaryDeep }}>EduLift</div>
             <div style={styles.badge}>{student.placementDone ? t.modeLearning : t.modeAssessment}</div>
-            <div style={{...styles.badge, background: '#e0f2fe', color: '#0369a1'}}>👤 {student.name}</div>
-            <div style={{...styles.badge, background: '#dcfce7', color: '#166534'}}>📐 {student.levels?.maths}</div>
+            <div style={{ ...styles.badge, background: '#e0f2fe', color: '#0369a1' }}>👤 {student.name}</div>
+            {/* Inside the <nav> element, replace the single level badge */}
+            <div style={{ ...styles.badge, background: '#dcfce7', color: '#166534' }}>
+              📐 M: {student.levels?.maths}
+            </div>
+            <div style={{ ...styles.badge, background: '#fef3c7', color: '#92400e' }}>
+              🧪 S: {student.levels?.science}
+            </div>
           </div>
           <div style={{ display: "flex", gap: "15px" }}>
             <button onClick={() => setLang(lang === 'en' ? 'hi' : 'en')} style={styles.langBtn}>
@@ -299,11 +325,18 @@ export default function StudentDashboard() {
           <PlacementTest student={student} setStudent={setStudent} />
         ) : (
           <div style={styles.dashboardGrid}>
+            {/* MAIN LESSON AREA */}
             <main style={styles.card}>
-              <header style={styles.sectionHeader}>
-                <h2 style={{margin: 0}}>{t.modeLearning}</h2>
-                <div style={styles.statusPill}>{student.completedLessons?.length || 0} Mastered</div>
-              </header>
+                {/* In your Main Lesson Area Header */}
+                <header style={styles.sectionHeader}>
+                  <h2 style={{ margin: 0 }}>{t.modeLearning}</h2>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    {/* Explicitly show progress for both subjects to show the student they are still in the same level */}
+                    <div style={styles.statusPill}>Maths: {student.completedMathsLessons?.length || 0} Done</div>
+                    <div style={styles.statusPill}>Science: {student.completedScienceLessons?.length || 0} Done</div>
+                  </div>
+                </header>
+
               <Lessons
                 student={student}
                 onComplete={handleCompleteLesson}
@@ -318,6 +351,7 @@ export default function StudentDashboard() {
               />
             </main>
 
+            {/* RIGHT SIDEBAR */}
             <div style={styles.rightSidebar}>
               {showWellnessBtn && (
                 <button onClick={() => navigate("/student/wellness-check")} style={styles.wellnessBanner}>
@@ -329,10 +363,7 @@ export default function StudentDashboard() {
                 </button>
               )}
 
-              <button 
-                onClick={() => navigate("/student/hobby-hub")}
-                style={styles.hobbyHubBtn}
-              >
+              <button onClick={() => navigate("/student/hobby-hub")} style={styles.hobbyHubBtn}>
                 <span style={{ fontSize: "24px" }}>🎨</span>
                 <div style={{ textAlign: "left" }}>
                   <div style={{ fontWeight: "bold", color: "#065f46" }}>{t.hobbyBtn}</div>
@@ -345,24 +376,66 @@ export default function StudentDashboard() {
                 <p style={styles.helperText}>* Upload notes to reach 50%. Pass test for 100%.</p>
               </div>
 
+              {/* CHATBOT CONTAINER */}
               <aside style={styles.chatbotContainer}>
                 <div style={styles.chatHeader}>
                   <span>🤖 {t.doubtSolver}</span>
                   {isListening && <span style={styles.pulse}>● Listening</span>}
                 </div>
+
                 <div style={styles.chatBody}>
                   {messages.length === 0 && <div style={styles.emptyChat}>Ask a question about the lesson!</div>}
+
                   {messages.map((msg, i) => (
                     <div key={i} style={{ textAlign: msg.role === "user" ? "right" : "left", marginBottom: "15px" }}>
-                      <div style={{ ...styles.bubble, background: msg.role === "user" ? colors.primaryDeep : "#f1f5f9", color: msg.role === "user" ? "#fff" : "#334155" }}>
-                        {msg.content}
+                      <div style={{
+                        ...styles.bubble,
+                        background: msg.role === "user" ? colors.primaryDeep : "#ffffff",
+                        color: msg.role === "user" ? "#fff" : "#334155",
+                        border: msg.role === "bot" ? "1px solid #e2e8f0" : "none"
+                      }}>
+
+                        {msg.role === "user" ? (
+                          msg.content
+                        ) : (
+                          /* FORMATTED BOT RESPONSE */
+                          <div style={{ fontSize: "14px", lineHeight: "1.6" }}>
+                            {msg.content.split(/(?=📌|📖|💡)/g).map((part, index) => {
+                              const isAnswer = part.includes("📌");
+                              const isExplanation = part.includes("📖");
+                              const isExample = part.includes("💡");
+
+                              return (
+                                <div key={index} style={{
+                                  marginBottom: "10px",
+                                  padding: "8px",
+                                  borderRadius: "8px",
+                                  background: isAnswer ? "#ecfdf5" : "transparent",
+                                  borderLeft: (isExplanation || isExample) ? `4px solid ${colors.primaryDeep}` : "none"
+                                }}>
+                                  <ReactMarkdown>
+                                    {part.replace(/-{3,}/g, "").trim()}
+                                  </ReactMarkdown>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
                   <div ref={messagesEndRef} />
                 </div>
+
+                {/* CHAT INPUT AREA */}
                 <div style={styles.chatInputRow}>
-                  <input style={styles.input} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendMessage()} placeholder={isBlind ? "Hold Space to talk..." : t.askDoubt} />
+                  <input
+                    style={styles.input}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                    placeholder={isBlind ? "Hold Space to talk..." : t.askDoubt}
+                  />
                   <button onClick={() => sendMessage()} style={styles.sendBtn}>➤</button>
                 </div>
               </aside>

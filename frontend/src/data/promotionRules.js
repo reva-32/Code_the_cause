@@ -8,18 +8,31 @@ export function getNextClass(currentClass) {
   return CLASS_ORDER[index + 1];
 }
 
-export function applyPromotion({ student, subject, score }) {
+export function applyPromotion({ student, subject, score, isFinalExam = false }) {
   const updated = { ...student };
+  const subKey = subject.toLowerCase();
 
   if (!updated.levels) updated.levels = {};
   if (!updated.scores) updated.scores = {};
-  if (!updated.completedLessons) updated.completedLessons = [];
+
+  // Initialize subject-specific completion if not present
+  if (!updated.completedMathsLessons) updated.completedMathsLessons = [];
+  if (!updated.completedScienceLessons) updated.completedScienceLessons = [];
 
   updated.scores[subject] = score;
 
-  if (score >= 90) {
-    updated.levels[subject] = getNextClass(updated.levels[subject]);
-    updated.lastResult = "PASS";
+  // BLOCK PROMOTION unless it's a Final Exam
+  if (isFinalExam && score >= 90) {
+    const currentLevel = updated.levels[subKey] || "Class 1";
+    updated.levels[subKey] = getNextClass(currentLevel);
+    updated.lastResult = "PROMOTED";
+
+    // Reset lessons for the NEW class level
+    if (subKey === 'maths') updated.completedMathsLessons = [];
+    if (subKey === 'science') updated.completedScienceLessons = [];
+
+  } else if (score >= 90) {
+    updated.lastResult = "TOPIC_PASS"; // Level remains the same
   } else {
     updated.lastResult = "FAIL";
   }
@@ -28,7 +41,13 @@ export function applyPromotion({ student, subject, score }) {
 }
 
 export function shouldShowTest({ student, lessonId }) {
-  return !student.completedLessons.includes(lessonId);
+  // Check both global and subject-specific arrays for safety
+  const allCompleted = [
+    ...(student.completedLessons || []),
+    ...(student.completedMathsLessons || []),
+    ...(student.completedScienceLessons || [])
+  ];
+  return !allCompleted.includes(lessonId);
 }
 
 export function getContentMode(student) {

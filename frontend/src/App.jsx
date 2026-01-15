@@ -9,7 +9,7 @@ import GuardianSignup from "./auth/GuardianSignup";
 import StudentLogin from "./auth/StudentLogin";
 
 /* PAGES / DASHBOARDS */
-import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminDashboard from "./pages/admin/adminDashboard";
 import OrphanageList from "./pages/admin/OrphanageList";
 import StudentAnalytics from "./pages/admin/StudentAnalytics";
 import ContentManager from "./pages/admin/ContentManager";
@@ -25,6 +25,10 @@ import StudentMedicalProfile from "./pages/guardian/StudentMedicalProfile";
 import Instructions from "./pages/guardian/Instructions";
 import AdminContentUpload from "./pages/admin/adminLessonUpload";
 import HobbyHub from "./pages/students/HobbyHub";
+import ExamManager from "./pages/admin/ExamManager";
+import GuardianExamPage from "./pages/guardian/GuardianExamPage";
+import GradingCenter from "./pages/admin/GradingCenter";
+
 
 // 1. IMPORT YOUR NEW REGISTRATION PAGE
 import GuardianAddStudent from "./pages/guardian/addStudent";
@@ -61,7 +65,8 @@ export default function App() {
         {/* ADMIN */}
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/dashboard" element={<ProtectedAdmin><AdminDashboard /></ProtectedAdmin>} />
-         <Route path="/admin/content" element={<AdminContentUpload />} />
+        <Route path="/admin/content" element={<AdminContentUpload />} />
+        <Route path="/admin/grading" element={<GradingCenter />} />
           <Route
           path="/admin/orphanages"
           element={
@@ -102,6 +107,14 @@ export default function App() {
             </ProtectedAdmin>
           }
         />
+        <Route
+          path="/admin/exam-manager"
+          element={
+            <ProtectedAdmin>
+              <ExamManager />
+            </ProtectedAdmin>
+          }
+        />
 
         {/* GUARDIAN */}
         <Route path="/guardian/login" element={<GuardianLogin />} />
@@ -120,6 +133,14 @@ export default function App() {
         />
         <Route path="/guardian/medical-profile/:studentName" element={<StudentMedicalProfile />} />
         <Route path="/guardian/student/:id" element={<ProtectedGuardian><StudentProgressPage /></ProtectedGuardian>} />
+        <Route
+          path="/guardian/exam-center"
+          element={
+            <ProtectedGuardian>
+              <GuardianExamPage />
+            </ProtectedGuardian>
+          }
+        />
 
         {/* STUDENT ROUTES */}
         <Route path="/student/login" element={<StudentLogin />} />

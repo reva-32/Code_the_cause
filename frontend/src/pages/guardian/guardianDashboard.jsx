@@ -273,6 +273,19 @@ export default function GuardianDashboard() {
             <button onClick={handleExportVisitorLogs} style={{ ...styles.saveBtn, background: "#1e293b", width: "100%" }}>Export Visitors 📥</button>
           </div>
 
+          <h2 style={styles.sectionTitle}>Academic Center</h2>
+          <div style={styles.formCard}>
+            <button
+              onClick={() => navigate("/guardian/exam-center")}
+              style={{ ...styles.saveBtn, background: "#10b981", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px" }}
+            >
+              📝 Final Exam Center
+            </button>
+            <p style={{ fontSize: "12px", color: "#64748b", marginTop: "8px", textAlign: "center" }}>
+              Download question papers & upload answer sheets for promotion.
+            </p>
+          </div>
+
           <h2 style={styles.sectionTitle}>Visitor Check-In</h2>
           <div style={styles.formCard}>
             <form onSubmit={handleVisitorCheckIn}>

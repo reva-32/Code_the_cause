@@ -6,28 +6,26 @@ export default function Sidebar() {
   const location = useLocation();
 
   const handleLogout = () => {
-    // ✅ FIXED: Only remove admin session keys. 
-    // This prevents deleting your entire local database (records, students, etc.)
+    // Only remove admin session keys to preserve database
     localStorage.removeItem("role");
     localStorage.removeItem("adminLoggedIn");
-    
-    // Optional: if you have other admin-specific session data, remove it here
-    // localStorage.removeItem("adminUser"); 
-
     navigate("/");
   };
 
+  // ✅ All links organized in one place
   const menuItems = [
-    { name: "Dashboard", path: "/admin/dashboard" },
-    { name: "Orphanages", path: "/admin/orphanages" },
-    { name: "Students", path: "/admin/students" },
-    { name: "Content Upload", path: "/admin/content" },
-    { name: "Visitor Logs", path: "/admin/visitors" },
+    { name: "📊 Dashboard", path: "/admin/dashboard" },
+    { name: "🏠 Orphanages", path: "/admin/orphanages" },
+    { name: "🎓 Students", path: "/admin/students" },
+    { name: "📁 Content Upload", path: "/admin/content" },
+    { name: "📤 Final Exams", path: "/admin/exam-manager" },
+    { name: "📝 Grading Center", path: "/admin/grading" }, // ✅ Grading link added
+    { name: "📋 Visitor Logs", path: "/admin/visitors" },
   ];
 
   const sidebarStyle = {
     width: "260px",
-    background: "#1b4332", // Dark green theme
+    background: "#1b4332",
     display: "flex",
     flexDirection: "column",
     height: "100vh",
@@ -57,15 +55,7 @@ export default function Sidebar() {
 
   return (
     <div style={sidebarStyle}>
-      <div 
-        style={{ 
-          padding: "40px 25px", 
-          fontSize: "22px", 
-          fontWeight: "800", 
-          color: "#ffffff",
-          letterSpacing: "1px" 
-        }}
-      >
+      <div style={{ padding: "40px 25px", fontSize: "22px", fontWeight: "800", color: "#ffffff", letterSpacing: "1px" }}>
         Admin Panel
       </div>
 
