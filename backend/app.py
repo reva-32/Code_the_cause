@@ -1,26 +1,183 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from chatbot import ask_bot
+from werkzeug.utils import secure_filename
+import os  
+import time
+
+# Attempt to import your custom chatbot logic
+try:
+    from chatbot import ask_bot
+except ImportError:
+    def ask_bot(msg, is_blind=False):
+        return "Chatbot module not found. Please check chatbot.py"
 
 app = Flask(__name__)
-CORS(app)  # ✅ CORS added
+# Change CORS(app) to this:
+CORS(app, resources={r"/*": {"origins": "*"}}, methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
-# Route for the chatbot
+# --- 1. CONFIGURATION ---
+# Define the file types we allow to be uploaded
+ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
+
+# Define directory structure
+BASE_UPLOAD_FOLDER = 'uploads'
+EXAM_PAPERS_FOLDER = os.path.join(BASE_UPLOAD_FOLDER, 'exams')
+STUDENT_ANSWERS_FOLDER = os.path.join(BASE_UPLOAD_FOLDER, 'submissions')
+
+# Automatically create all necessary folders
+for folder in [BASE_UPLOAD_FOLDER, EXAM_PAPERS_FOLDER, STUDENT_ANSWERS_FOLDER]:
+    if not os.path.exists(folder):
+        os.makedirs(folder, exist_ok=True)
+
+# --- 2. HELPERS ---
+
+def allowed_file(filename):
+    """Check if the uploaded file has a permitted extension."""
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def get_exam_dir(subject, student_type):
+    """Create and return path: uploads/exams/Maths/Blind/"""
+    path = os.path.join(EXAM_PAPERS_FOLDER, subject, student_type)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+# --- 3. STUDENT ROUTES ---
+
 @app.route("/chat", methods=["POST"])
 def chat():
+    """Handles AI Doubt Solver requests from the Student Dashboard."""
     data = request.get_json()
-    print("Incoming data:", data) 
-
     if not data or data.get("source") != "student_dashboard":
         return jsonify({"error": "Access denied"}), 403
 
     user_message = data.get("message", "")
-    # ✅ Grab the flag from the frontend request
     is_blind = data.get("is_blind", False) 
 
     reply = ask_bot(user_message, is_blind=is_blind)
     return jsonify({"reply": reply})
 
-# Run the Flask app
+# --- 4. GUARDIAN ROUTES ---
+
+@app.route('/api/guardian/upload-answers', methods=['POST'])
+def upload_answer_sheet():
+    """Endpoint for Guardian to upload the student's completed exam."""
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+    
+    file = request.files['file']
+    student_name = request.form.get('studentName')
+    
+    if file.filename == '' or not student_name:
+        return jsonify({"error": "Missing file or student name"}), 400
+
+    if file and allowed_file(file.filename):
+        timestamp = int(time.time())
+        safe_student_name = secure_filename(student_name)
+        # Format: Name_Timestamp_AnswerSheet.pdf
+        filename = f"{safe_student_name}_{timestamp}_AnswerSheet.pdf"
+        
+        save_path = os.path.join(STUDENT_ANSWERS_FOLDER, filename)
+        file.save(save_path)
+        
+        return jsonify({
+            "message": "Upload successful", 
+            "status": "submitted",
+            "filename": filename 
+        }), 200
+    
+    return jsonify({"error": "Invalid file type"}), 400
+
+# --- 5. ADMIN ROUTES ---
+
+@app.route('/api/admin/upload-exam', methods=['POST'])
+def admin_upload_exam():
+    """Endpoint for Admin to upload Question Papers categorized by subject and type."""
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+    
+    file = request.files['file']
+    class_level = request.form.get('classLevel') 
+    subject = request.form.get('subject')        # e.g., "Maths"
+    student_type = request.form.get('studentType') # e.g., "Blind" or "Standard"
+
+    if not all([file.filename, class_level, subject, student_type]):
+        return jsonify({"error": "Missing required fields"}), 400
+
+    if not allowed_file(file.filename):
+        return jsonify({"error": "File type not allowed"}), 400
+
+    clean_class = class_level.replace(" ", "_")
+    filename = secure_filename(f"{clean_class}_Final_Exam.pdf")
+    
+    target_folder = get_exam_dir(subject, student_type)
+    save_path = os.path.join(target_folder, filename)
+    
+    file.save(save_path)
+    return jsonify({"message": f"Successfully published {subject} exam for {class_level}!"}), 200
+
+@app.route('/api/admin/submissions', methods=['GET'])
+def get_submissions():
+    submissions = []
+    if os.path.exists(STUDENT_ANSWERS_FOLDER):
+        for filename in os.listdir(STUDENT_ANSWERS_FOLDER):
+            # We point to the 'submissions' subfolder explicitly in the URL
+            submissions.append({
+                "filename": filename,
+                "url": f"http://localhost:5000/uploads/submissions/{filename}"
+            })
+    return jsonify(submissions)
+
+@app.route('/api/admin/delete-submission/<filename>', methods=['DELETE', 'OPTIONS'])
+def delete_submission(filename):
+    if request.method == "OPTIONS":
+        return jsonify({"success": True}), 200
+    try:
+        # Prevent directory traversal by securing filename
+        safe_filename = secure_filename(filename)
+        file_path = os.path.join(STUDENT_ANSWERS_FOLDER, safe_filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            return jsonify({"message": "Submission cleared"}), 200
+        return jsonify({"error": "File not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/admin/grade-exam', methods=['POST'])
+def grade_exam():
+    """Handles logic for promoting students based on exam results."""
+    data = request.json
+    result = data.get('result')  # "pass" or "fail"
+    current_class = data.get('currentClass')
+
+    class_map = {
+        "Class 1": "Class 2",
+        "Class 2": "Class 3",
+        "Class 3": "Class 4",
+        "Class 4": "Class 5",
+        "Class 5": "Graduated"
+    }
+
+    if result == "pass":
+        next_class = class_map.get(current_class, current_class)
+        return jsonify({
+            "status": "success",
+            "result": "pass",
+            "nextClass": next_class
+        }), 200
+    
+    return jsonify({"status": "success", "result": "fail", "nextClass": current_class}), 200
+
+# --- 6. FILE SERVING ---
+
+@app.route('/uploads/<path:filename>')
+def serve_file(filename):
+    # Use absolute path to ensure the server finds the 'uploads' folder correctly
+    absolute_path = os.path.join(os.getcwd(), BASE_UPLOAD_FOLDER)
+    
+    # This will now correctly find 'exams/Maths/Standard/Class_1_Final_Exam.pdf'
+    return send_from_directory(absolute_path, filename)
+    
 if __name__ == "__main__":
-    app.run(debug=True)
+    # debug=True allows for auto-reload on code changes
+    app.run(debug=True, port=5000)
