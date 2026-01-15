@@ -12,20 +12,21 @@ except ImportError:
         return "Chatbot module not found. Please check chatbot.py"
 
 app = Flask(__name__)
-# Change CORS(app) to this:
+# CORS Configuration
 CORS(app, resources={r"/*": {"origins": "*"}}, methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
 # --- 1. CONFIGURATION ---
-# Define the file types we allow to be uploaded
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
 
 # Define directory structure
 BASE_UPLOAD_FOLDER = 'uploads'
 EXAM_PAPERS_FOLDER = os.path.join(BASE_UPLOAD_FOLDER, 'exams')
 STUDENT_ANSWERS_FOLDER = os.path.join(BASE_UPLOAD_FOLDER, 'submissions')
+# ✅ ADDED: Specific folder for lesson notes
+NOTES_FOLDER = os.path.join(BASE_UPLOAD_FOLDER, 'notes')
 
 # Automatically create all necessary folders
-for folder in [BASE_UPLOAD_FOLDER, EXAM_PAPERS_FOLDER, STUDENT_ANSWERS_FOLDER]:
+for folder in [BASE_UPLOAD_FOLDER, EXAM_PAPERS_FOLDER, STUDENT_ANSWERS_FOLDER, NOTES_FOLDER]:
     if not os.path.exists(folder):
         os.makedirs(folder, exist_ok=True)
 
@@ -74,7 +75,6 @@ def upload_answer_sheet():
     if file and allowed_file(file.filename):
         timestamp = int(time.time())
         safe_student_name = secure_filename(student_name)
-        # Format: Name_Timestamp_AnswerSheet.pdf
         filename = f"{safe_student_name}_{timestamp}_AnswerSheet.pdf"
         
         save_path = os.path.join(STUDENT_ANSWERS_FOLDER, filename)
@@ -90,6 +90,28 @@ def upload_answer_sheet():
 
 # --- 5. ADMIN ROUTES ---
 
+# ✅ ADDED: Route to handle Admin Lesson Notes Upload
+@app.route('/api/admin/upload-notes', methods=['POST'])
+def admin_upload_notes():
+    """Endpoint to save PDF study notes for lessons."""
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        save_path = os.path.join(NOTES_FOLDER, filename)
+        file.save(save_path)
+        return jsonify({
+            "message": "Notes uploaded successfully",
+            "filename": filename
+        }), 200
+    
+    return jsonify({"error": "Invalid file type"}), 400
+
 @app.route('/api/admin/upload-exam', methods=['POST'])
 def admin_upload_exam():
     """Endpoint for Admin to upload Question Papers categorized by subject and type."""
@@ -98,8 +120,8 @@ def admin_upload_exam():
     
     file = request.files['file']
     class_level = request.form.get('classLevel') 
-    subject = request.form.get('subject')        # e.g., "Maths"
-    student_type = request.form.get('studentType') # e.g., "Blind" or "Standard"
+    subject = request.form.get('subject')        
+    student_type = request.form.get('studentType') 
 
     if not all([file.filename, class_level, subject, student_type]):
         return jsonify({"error": "Missing required fields"}), 400
@@ -121,7 +143,6 @@ def get_submissions():
     submissions = []
     if os.path.exists(STUDENT_ANSWERS_FOLDER):
         for filename in os.listdir(STUDENT_ANSWERS_FOLDER):
-            # We point to the 'submissions' subfolder explicitly in the URL
             submissions.append({
                 "filename": filename,
                 "url": f"http://localhost:5000/uploads/submissions/{filename}"
@@ -133,7 +154,6 @@ def delete_submission(filename):
     if request.method == "OPTIONS":
         return jsonify({"success": True}), 200
     try:
-        # Prevent directory traversal by securing filename
         safe_filename = secure_filename(filename)
         file_path = os.path.join(STUDENT_ANSWERS_FOLDER, safe_filename)
         if os.path.exists(file_path):
@@ -145,9 +165,8 @@ def delete_submission(filename):
 
 @app.route('/api/admin/grade-exam', methods=['POST'])
 def grade_exam():
-    """Handles logic for promoting students based on exam results."""
     data = request.json
-    result = data.get('result')  # "pass" or "fail"
+    result = data.get('result')  
     current_class = data.get('currentClass')
 
     class_map = {
@@ -172,12 +191,8 @@ def grade_exam():
 
 @app.route('/uploads/<path:filename>')
 def serve_file(filename):
-    # Use absolute path to ensure the server finds the 'uploads' folder correctly
     absolute_path = os.path.join(os.getcwd(), BASE_UPLOAD_FOLDER)
-    
-    # This will now correctly find 'exams/Maths/Standard/Class_1_Final_Exam.pdf'
     return send_from_directory(absolute_path, filename)
     
 if __name__ == "__main__":
-    # debug=True allows for auto-reload on code changes
     app.run(debug=True, port=5000)

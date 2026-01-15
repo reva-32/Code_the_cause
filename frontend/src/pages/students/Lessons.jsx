@@ -13,7 +13,9 @@ export default function Lessons({
   setAssignmentStep,
   onUpload,
   isVerifying,
-  speak
+  speak,
+  // This prop comes from StudentDashboard to trigger the download logic
+  onDownloadNotes
 }) {
   const [subject, setSubject] = useState("maths");
   const [allLessons, setAllLessons] = useState([]);
@@ -42,7 +44,6 @@ export default function Lessons({
   // 3. Update Assignment Step (Watch -> Test)
   useEffect(() => {
     const currentActive = eligibleLessons.find(l => !student.completedLessons?.includes(l.id));
-
     if (currentActive && student.verifiedSummaries?.includes(currentActive.id)) {
       setAssignmentStep("test");
     } else {
@@ -65,11 +66,8 @@ export default function Lessons({
           <div style={styles.empty}>No lessons found for this level.</div>
         ) : (
           (() => {
-            // Independent check: Is this specific subject finished?
             const subjectKey = subject.toLowerCase() === 'maths' ? 'completedMathsLessons' : 'completedScienceLessons';
             const completedIds = student[subjectKey] || [];
-
-            // Check if every eligible lesson is found in the completion array
             const isSubjectFullyDone = eligibleLessons.every(l => completedIds.includes(l.id));
 
             if (isSubjectFullyDone) {
@@ -79,9 +77,6 @@ export default function Lessons({
                   <h3 style={{ color: primaryColor, margin: "10px 0" }}>
                     {subject.toUpperCase()} - {student.levels?.[subject]} Complete!
                   </h3>
-                  <p style={{ color: "#475569", maxWidth: "400px", margin: "0 auto" }}>
-                    Great job! You have finished all the topics for this class.
-                  </p>
                   <div style={styles.waitingBadgeSmall}>
                     ⏳ Waiting for Guardian to assign your Final Exam.
                   </div>
@@ -89,21 +84,37 @@ export default function Lessons({
               );
             }
 
-            // Otherwise, render the lesson list
-            return eligibleLessons.map((lesson, index) => {
-              const isCompleted = student.completedLessons?.includes(lesson.id);
-              const isCurrentActive = !isCompleted && (index === 0 || student.completedLessons?.includes(eligibleLessons[index - 1].id));
-              const isLocked = !isCompleted && !isCurrentActive;
+              // ✅ CHANGE THIS LINE IN YOUR eligibleLessons.map:
 
-              return (
-                <div key={lesson.id} style={{ opacity: isLocked ? 0.6 : 1, pointerEvents: isLocked ? "none" : "all" }}>
-                  <div style={{ ...styles.card, border: isADHD ? `3px solid ${primaryColor}` : "1px solid #eee" }}>
-                    <div style={styles.cardTop}>
-                      <h4 style={{ margin: 0 }}>
-                        {isLocked ? "🔒 Locked Topic" : isCompleted ? `✅ ${lesson.title}` : lesson.title}
-                      </h4>
-                      {lesson.isPersonalized && <span style={styles.badge}>PERSONALIZED</span>}
-                    </div>
+              return eligibleLessons.map((lesson, index) => {
+                const isCompleted = student.completedLessons?.includes(lesson.id);
+                const isCurrentActive = !isCompleted && (index === 0 || student.completedLessons?.includes(eligibleLessons[index - 1].id));
+                const isLocked = !isCompleted && !isCurrentActive;
+
+                // Choose the file based on subject
+                const defaultFile = subject.toLowerCase() === "maths" ? "Maths_notes.pdf" : "Science_notes.pdf";
+                const fileToDownload = lesson.notesUrl || defaultFile;
+
+                return (
+                  <div key={lesson.id} style={{ opacity: isLocked ? 0.6 : 1 }}>
+                    <div style={styles.card}>
+                      <div style={styles.cardTop}>
+                        <h4>{lesson.title}</h4>
+
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          {/* ✅ UPDATED CONDITION: Show if the lesson is NOT locked */}
+                          {/* This means it shows for "Active" AND "Completed" lessons */}
+                          {!isLocked && (
+                            <button
+                              onClick={() => onDownloadNotes(fileToDownload)}
+                              style={styles.downloadBadge}
+                            >
+                              📄 {subject.toUpperCase()} NOTES
+                            </button>
+                          )}
+                          {lesson.isPersonalized && <span style={styles.badge}>PERSONALIZED</span>}
+                        </div>
+                      </div>
 
                     {isCurrentActive && (
                       <div style={styles.content}>
@@ -166,6 +177,20 @@ const styles = {
   card: { padding: "25px", borderRadius: "18px", transition: "0.3s", background: "#fff" },
   cardTop: { display: "flex", justifyContent: "space-between", marginBottom: "15px", alignItems: "center" },
   badge: { background: "#fef3c7", color: "#92400e", padding: "4px 8px", borderRadius: "10px", fontSize: "10px", fontWeight: "bold" },
+  downloadBadge: {
+    background: "#065f46",
+    color: "#fff",
+    padding: "6px 12px",
+    borderRadius: "10px",
+    fontSize: "11px",
+    fontWeight: "bold",
+    border: "none",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+    boxShadow: "0 2px 5px rgba(0,0,0,0.1)"
+  },
   media: { marginBottom: "20px" },
   videoBox: { position: "relative", paddingTop: "56.25%", background: "#000", borderRadius: "12px", overflow: "hidden" },
   iframe: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%" },
@@ -174,27 +199,6 @@ const styles = {
   pulse: { color: "#0891b2", fontWeight: "bold", marginTop: "10px" },
   empty: { textAlign: "center", color: "#666", padding: "40px" },
   content: { display: "flex", flexDirection: "column", gap: "15px" },
-
-  // Completion UI
-  completionCard: {
-    textAlign: 'center',
-    padding: '50px 20px',
-    background: '#f8fafc',
-    borderRadius: '30px',
-    border: '2px dashed #cbd5e1',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '10px'
-  },
-  waitingBadgeSmall: {
-    background: "#fef3c7",
-    color: "#92400e",
-    padding: "10px 20px",
-    borderRadius: "14px",
-    fontSize: "14px",
-    fontWeight: "bold",
-    marginTop: "15px",
-    boxShadow: "0 4px 10px rgba(251, 191, 36, 0.1)"
-  }
+  completionCard: { textAlign: 'center', padding: '50px 20px', background: '#f8fafc', borderRadius: '30px', border: '2px dashed #cbd5e1', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' },
+  waitingBadgeSmall: { background: "#fef3c7", color: "#92400e", padding: "10px 20px", borderRadius: "14px", fontSize: "14px", fontWeight: "bold", marginTop: "15px", boxShadow: "0 4px 10px rgba(251, 191, 36, 0.1)" }
 };

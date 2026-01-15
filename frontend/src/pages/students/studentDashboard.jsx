@@ -322,6 +322,25 @@ export default function StudentDashboard() {
   const scienceDone = (student.completedScienceLessons?.length || 0) >= REQUIRED;
   const scienceLevel = student.levels?.science || "Class 1";
 
+  /* ================= 6. DOWNLOAD LOGIC ================= */
+  const downloadNotes = (fileName) => {
+    if (!fileName) {
+      speak("No notes are available for this lesson.");
+      return alert("No notes available.");
+    }
+
+    // Update this URL to match your Flask server address
+    const fileUrl = `http://localhost:5000/uploads/notes/${fileName}`;
+
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    speak("Downloading lesson notes.");
+  };
+
   return (
     <div style={{ backgroundColor: colors.pastelBg, minHeight: "100vh", padding: "20px" }}>
       <div style={{ maxWidth: "1400px", margin: "0 auto", fontFamily: "Inter, sans-serif" }}>
@@ -387,7 +406,8 @@ export default function StudentDashboard() {
                 <Lessons
                   student={student}
                   onComplete={handleCompleteLesson}
-                  lang={lang} t={t}
+                  lang={lang}
+                  t={t}
                   setWatchProgress={setActiveWatchProgress}
                   primaryColor={colors.primaryDeep}
                   assignmentStep={assignmentStep}
@@ -395,6 +415,8 @@ export default function StudentDashboard() {
                   onUpload={handleAssignmentUpload}
                   isVerifying={isVerifying}
                   speak={speak}
+                  // ✅ Correct way to pass it:
+                  onDownloadNotes={downloadNotes}
                 />
               </main>
 
