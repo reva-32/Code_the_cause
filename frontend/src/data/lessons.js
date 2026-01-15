@@ -26,7 +26,7 @@ export const lessons = [
     chapter: "Advanced Math",
     topic: "Fractions",
     title: "Fractions Basics",
-    videoId: "fZFwHpiAVE0",
+    videoId: "TzxDNHSVh7I",
     audio: "/audios/class3-fractions.mp3",
   },
   {
@@ -35,8 +35,8 @@ export const lessons = [
     class: "Class 4",
     chapter: "Advanced Math",
     topic: "Multiplication",
-    title: "Multiplication Basics",
-    videoId: "fZFwHpiAVE0",
+    title: "Multiples and factors",
+    videoId: "Hg-e0XIdQ90",
     audio: "/audios/class4-multiplication.mp3",
   },
   {
@@ -44,9 +44,9 @@ export const lessons = [
     subject: "maths",
     class: "Class 5",
     chapter: "Advanced Math",
-    topic: "Multiplication",
-    title: "Multiplication Basics",
-    videoId: "fZFwHpiAVE0",
+    topic: "Measurement",
+    title: "Units of measurement",
+    videoId: "AVC-426M6V0",
     audio: "/audios/class5-multiplication.mp3",
   },
   {
@@ -85,8 +85,8 @@ export const lessons = [
     class: "Class 4",
     chapter: "Biology",
     topic: "Classification",
-    title: "Living and Non-living Things",
-    videoId: "saL8acHZJ8Q",
+    title: "Parts of plant",
+    videoId: "p3St51F4kE8",
     audio: "/audios/class4-living-nonliving.mp3",
   },
   {
@@ -94,9 +94,9 @@ export const lessons = [
     subject: "science",
     class: "Class 5",
     chapter: "Biology",
-    topic: "Classification",
-    title: "Living and Non-living Things",
-    videoId: "saL8acHZJ8Q",
+    topic: "Plant Kingdom",
+    title: "Photosynthesis",
+    videoId: "D1Ymc311XS8",
     audio: "/audios/class5-living-nonliving.mp3",
   }
 ];

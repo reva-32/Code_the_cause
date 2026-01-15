@@ -68,7 +68,6 @@ export default function StudentDashboard() {
     loadVoices();
     window.speechSynthesis.onvoiceschanged = loadVoices;
 
-    // CLEANUP ON UNMOUNT: Stops voice if user leaves page or closes tab
     return () => {
       if (window.speechSynthesis) window.speechSynthesis.cancel();
     };
@@ -132,14 +131,7 @@ export default function StudentDashboard() {
     if (student && isBlind) {
       const welcomeMsg = `Welcome ${student.name}. Your Learning Path is ready. 
       Your level for Mathematics is ${student.levels.maths}, and for Science is ${student.levels.science}. 
-      Keyboard shortcuts: 
-      Press Alt plus P to Play or Pause the lesson. 
-      Press Alt plus U to Upload your summary notes. 
-      Press Alt plus T to start your Topic Test. 
-      Press Alt plus W for Wellness Check-in.
-      Press Alt plus H for Hobby Hub.
-      Press and hold Spacebar to ask the AI a question. 
-      Press Alt plus Q to logout.`;
+      Keyboard shortcuts are active.`;
       speak(welcomeMsg);
     }
   }, [student?.name]); 
@@ -169,13 +161,13 @@ export default function StudentDashboard() {
         localStorage.setItem("students", JSON.stringify(updated));
         setAssignmentStep("test");
         loadLatestData();
-        speak("Verification successful. Progress is 50 percent. Press Alt plus T to start the test.");
+        speak("Verification successful. Progress is 50 percent.");
       } else {
-        speak("Verification failed. Please ensure the notes are clearly visible and try again.");
+        speak("Verification failed.");
       }
     } catch (err) {
       console.error("Vision error", err);
-      speak("The verification service is currently offline.");
+      speak("Verification service offline.");
     } finally {
       setIsVerifying(false);
     }
@@ -188,7 +180,7 @@ export default function StudentDashboard() {
       if (s.name === student.name) {
         const subKey = subject.toLowerCase();
 
-        // 1. Record completion for the specific subject
+        // 1. Record completion for the specific subject array
         if (subKey === "maths") {
           const completed = s.completedMathsLessons || [];
           if (!completed.includes(lessonId)) completed.push(lessonId);
@@ -199,18 +191,24 @@ export default function StudentDashboard() {
           s.completedScienceLessons = completed;
         }
 
-        // 2. Save the score to the student's record
+        // 2. Update the shared completedLessons list for legacy components
+        const allCompleted = s.completedLessons || [];
+        if (!allCompleted.includes(lessonId)) allCompleted.push(lessonId);
+        s.completedLessons = allCompleted;
+
+        // 3. Save the score
         s.scores = { ...s.scores, [lessonId]: testScore };
 
-        // STOP: Do NOT call promoteIfEligible(s, subject, testScore) here.
-        // Regular topic tests should only save progress, not change levels.
+        // 🛑 DO NOT call promoteIfEligible here. 
+        // Promotion is now handled only via the Final Exam flag in promotionRules.js
       }
       return s;
     });
 
     localStorage.setItem("students", JSON.stringify(updatedStudents));
-    setAssignmentStep("watch"); // Reset UI for next lesson
-    loadLatestData(); // Refresh the dashboard state
+    setAssignmentStep("watch");
+    loadLatestData();
+    speak(`Lesson completed with ${testScore} percent.`);
   };
   
   /* ================= 4. VOICE RECOGNITION ================= */
@@ -241,7 +239,6 @@ export default function StudentDashboard() {
     } catch (err) { console.error("Chat error", err); }
   };
 
-  // LOGOUT HANDLER (Reusable for button and shortcuts)
   const handleLogout = () => {
     if (window.speechSynthesis) window.speechSynthesis.cancel();
     navigate("/");
@@ -250,40 +247,11 @@ export default function StudentDashboard() {
   /* ================= 5. KEYBOARD SHORTCUTS ================= */
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.altKey && e.key.toLowerCase() === 'q') {
-        handleLogout(); // Correctly stops voice before navigating
-      }
+      if (e.altKey && e.key.toLowerCase() === 'q') handleLogout();
       if (e.altKey && e.key.toLowerCase() === 'w') {
-        if (showWellnessBtn) {
-            speak("Navigating to Wellness Check-in.");
-            navigate("/student/wellness-check");
-        } else {
-            speak("Wellness check not required yet.");
-        }
+        if (showWellnessBtn) navigate("/student/wellness-check");
       }
-      if (e.altKey && e.key.toLowerCase() === 'h') {
-        speak("Opening Hobby Hub.");
-        navigate("/student/hobby-hub");
-      }
-      if (e.altKey && e.key.toLowerCase() === 'p') {
-        const media = document.querySelector('video') || document.querySelector('audio');
-  
-        if (media) {
-          if (media.paused) {
-            media.play();
-            speak("Playing media.");
-          } else {
-            media.pause();
-            speak("Pausing media.");
-          }
-        } else {
-          speak("No lesson media found on this page.");
-        }
-      }
-      if (e.altKey && e.key.toLowerCase() === 't') {
-        const testBtn = document.querySelector('button[style*="background: rgb(6, 95, 70)"]'); 
-        if (testBtn) testBtn.click();
-      }
+      if (e.altKey && e.key.toLowerCase() === 'h') navigate("/student/hobby-hub");
       if (isBlind && e.code === "Space" && document.activeElement.tagName !== "INPUT") {
         e.preventDefault();
         startListening();
@@ -305,14 +273,20 @@ export default function StudentDashboard() {
             <div style={{ fontSize: "26px", fontWeight: "900", color: colors.primaryDeep }}>EduLift</div>
             <div style={styles.badge}>{student.placementDone ? t.modeLearning : t.modeAssessment}</div>
             <div style={{ ...styles.badge, background: '#e0f2fe', color: '#0369a1' }}>👤 {student.name}</div>
-            {/* Inside the <nav> element, replace the single level badge */}
-            <div style={{ ...styles.badge, background: '#dcfce7', color: '#166534' }}>
-              📐 M: {student.levels?.maths}
-            </div>
-            <div style={{ ...styles.badge, background: '#fef3c7', color: '#92400e' }}>
-              🧪 S: {student.levels?.science}
-            </div>
-          </div>
+
+            {student.placementDone && (
+              <>
+                {/* Mathematics Level Badge */}
+                <div style={{ ...styles.badge, background: '#dcfce7', color: '#166534' }}>
+                  📐 {t?.maths || "M"}: {student.levels?.maths}
+                </div>
+
+                {/* Science Level Badge */}
+                <div style={{ ...styles.badge, background: '#fef3c7', color: '#92400e' }}>
+                  🧪 {t?.science || "S"}: {student.levels?.science}
+                </div>
+              </>
+            )}          </div>
           <div style={{ display: "flex", gap: "15px" }}>
             <button onClick={() => setLang(lang === 'en' ? 'hi' : 'en')} style={styles.langBtn}>
               {lang === 'en' ? 'हिन्दी' : 'English'}

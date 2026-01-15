@@ -28,6 +28,8 @@ import HobbyHub from "./pages/students/HobbyHub";
 import ExamManager from "./pages/admin/ExamManager";
 import GuardianExamPage from "./pages/guardian/GuardianExamPage";
 import GradingCenter from "./pages/admin/GradingCenter";
+import ADHDDashboard from "./pages/students/ADHDDashboard";
+import DeafDashboard from "./pages/students/DeafDashboard";
 
 
 // 1. IMPORT YOUR NEW REGISTRATION PAGE
@@ -54,6 +56,31 @@ export default function App() {
     const loggedIn = localStorage.getItem("adminLoggedIn");
     if (!loggedIn) return <Navigate to="/admin/login" />;
     return children;
+  };
+
+  const StudentDashboardSelector = () => {
+  const name = localStorage.getItem("loggedInStudent");
+  const students = JSON.parse(localStorage.getItem("students")) || [];
+  const student = students.find((s) => s.name === name);
+
+  if (!student) return <Navigate to="/student/login" />;
+
+  /*if (!student.placementDone) {
+    return <StudentDashboard student={student} />;
+  }*/
+
+  const disability = student?.disability?.toLowerCase() || "";
+
+  if (disability.includes("adhd")) {
+    return <ADHDDashboard student={student} />;
+  }
+
+  if (disability.includes("deaf")) {
+    return <DeafDashboard student={student} />;
+  }
+
+  // Default dashboard for others
+  return <StudentDashboard student={student} />;
   };
 
   return (
@@ -145,7 +172,7 @@ export default function App() {
         {/* STUDENT ROUTES */}
         <Route path="/student/login" element={<StudentLogin />} />
         <Route path="/student/wellness-check" element={<ProtectedStudent><MentalHealthForm /></ProtectedStudent>} />
-        <Route path="/student/dashboard" element={<ProtectedStudent><StudentDashboard /></ProtectedStudent>} />
+        <Route path="/student/dashboard" element={<ProtectedStudent><StudentDashboardSelector /></ProtectedStudent>} />
         <Route path="/student/progress" element={<ProtectedStudent><StudentProgress /></ProtectedStudent>} />
         <Route path="/student/lessons" element={<ProtectedStudent><Lessons /></ProtectedStudent>} />
         <Route path="/student/topic-test" element={<ProtectedStudent><TopicTest /></ProtectedStudent>} />

@@ -4,17 +4,17 @@ export const BASELINE_TEST = [
     id: "m1",
     subject: "maths",
     level: "Class1",
-    question: "4 birds + 2 birds = ?",
-    options: ["6", "42", "2", "8"],
+    question: "What is 4 + 2?",
+    options: ["6", "4", "2", "8"],
     answer: "6",
   },
   {
     id: "s1",
     subject: "science",
     level: "Class1",
-    question: "Which animal can fly?",
-    options: ["Dog", "Cat", "Bird", "Elephant"],
-    answer: "Bird",
+    question: "Which of these is a GOOD habit?",
+    options: ["Biting nails", "Brushing teeth twice a day", "Sleeping late", "Shouting"],
+    answer: "Brushing teeth twice a day",
   },
   {
     id: "m2",
@@ -33,60 +33,51 @@ export const BASELINE_TEST = [
     answer: "Evaporation",
   },
   {
+    id: "m3",
+    subject: "maths",
+    level: "Class3",
+    question: "Which fraction represents a half?",
+    options: ["1/4", "1/3", "1/2", "2/1"],
+    answer: "1/2",
+  },
+  {
     id: "s3",
     subject: "science",
     level: "Class3",
-    question: "Which of these is a living thing?",
-    options: ["Rock", "Tree", "Chair", "Pen"],
-    answer: "Tree",
+    question: "Which of these is a NON-LIVING thing?",
+    options: ["Cat", "Tree", "Stone", "Human"],
+    answer: "Stone",
   },
-];
-
-// ================= TOPIC TEST (ONLY THIS IS USED FOR RETAKE) =================
-export const TOPIC_TEST = [
   {
-    topic: "Addition",
+    id: "m4",
     subject: "maths",
-    level: "Class1",
-    questions: [
-      { question: "5 + 3 = ?", options: ["8", "53", "9", "7"], answer: "8" },
-      { question: "2 + 6 = ?", options: ["6", "8", "12", "4"], answer: "8" },
-      { question: "4 + 7 = ?", options: ["11", "47", "10", "12"], answer: "11" },
-      { question: "1 + 9 = ?", options: ["10", "19", "11", "9"], answer: "10" },
-      { question: "3 + 5 = ?", options: ["8", "35", "7", "9"], answer: "8" },
-    ],
+    level: "Class4",
+    question: "Which of these is a factor of 10?",
+    options: ["3", "4", "5", "6"],
+    answer: "5",
   },
-
   {
-    topic: "Multiplication",
-    subject: "maths",
-    level: "Class2",
-    questions: [
-      { question: "6 × 7 = ?", options: ["42", "13", "67", "36"], answer: "42" },
-      { question: "5 × 8 = ?", options: ["40", "13", "58", "35"], answer: "40" },
-      { question: "4 × 9 = ?", options: ["36", "49", "45", "34"], answer: "36" },
-      { question: "3 × 7 = ?", options: ["21", "37", "17", "24"], answer: "21" },
-      { question: "8 × 6 = ?", options: ["48", "86", "14", "56"], answer: "48" },
-    ],
-  },
-
-  {
-    topic: "Water Cycle",
+    id: "s4",
     subject: "science",
-    level: "Class2",
-    questions: [
-      { question: "Rain is?", options: ["Evaporation", "Precipitation"], answer: "Precipitation" },
-      { question: "Clouds form by?", options: ["Condensation", "Freezing"], answer: "Condensation" },
-      { question: "Sun heats water is?", options: ["Evaporation", "Melting"], answer: "Evaporation" },
-    ],
+    level: "Class4",
+    question: "Which part of the plant grows under the soil?",
+    options: ["Leaf", "Stem", "Root", "Flower"],
+    answer: "Root",
   },
+  {
+    id: "m5",
+    subject: "maths",
+    level: "Class5",
+    question: "How many centimeters are in 1 meter?",
+    options: ["10 cm", "100 cm", "1000 cm", "50 cm"],
+    answer: "100 cm",
+  },
+  {
+    id: "s5",
+    subject: "science",
+    level: "Class5",
+    question: "What gas do plants release during photosynthesis?",
+    options: ["Carbon Dioxide", "Oxygen", "Nitrogen", "Hydrogen"],
+    answer: "Oxygen",
+  }
 ];
-
-// ================= HELPERS =================
-export function evaluateTopicTest(questions, answers) {
-  let correct = 0;
-  questions.forEach((q, i) => {
-    if (answers[i] === q.answer) correct++;
-  });
-  return Math.round((correct / questions.length) * 100);
-}
