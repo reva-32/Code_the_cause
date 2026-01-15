@@ -67,7 +67,6 @@ export default function StudentDashboard() {
     loadVoices();
     window.speechSynthesis.onvoiceschanged = loadVoices;
 
-    // CLEANUP ON UNMOUNT: Stops voice if user leaves page or closes tab
     return () => {
       if (window.speechSynthesis) window.speechSynthesis.cancel();
     };
@@ -127,14 +126,7 @@ export default function StudentDashboard() {
     if (student && isBlind) {
       const welcomeMsg = `Welcome ${student.name}. Your Learning Path is ready. 
       Your level for Mathematics is ${student.levels.maths}, and for Science is ${student.levels.science}. 
-      Keyboard shortcuts: 
-      Press Alt plus P to Play or Pause the lesson. 
-      Press Alt plus U to Upload your summary notes. 
-      Press Alt plus T to start your Topic Test. 
-      Press Alt plus W for Wellness Check-in.
-      Press Alt plus H for Hobby Hub.
-      Press and hold Spacebar to ask the AI a question. 
-      Press Alt plus Q to logout.`;
+      Keyboard shortcuts are active.`;
       speak(welcomeMsg);
     }
   }, [student?.name]); 
@@ -164,13 +156,13 @@ export default function StudentDashboard() {
         localStorage.setItem("students", JSON.stringify(updated));
         setAssignmentStep("test");
         loadLatestData();
-        speak("Verification successful. Progress is 50 percent. Press Alt plus T to start the test.");
+        speak("Verification successful. Progress is 50 percent.");
       } else {
-        speak("Verification failed. Please ensure the notes are clearly visible and try again.");
+        speak("Verification failed.");
       }
     } catch (err) {
       console.error("Vision error", err);
-      speak("The verification service is currently offline.");
+      speak("Verification service offline.");
     } finally {
       setIsVerifying(false);
     }
@@ -191,7 +183,7 @@ export default function StudentDashboard() {
     localStorage.setItem("students", JSON.stringify(updatedStudents));
     setAssignmentStep("watch"); 
     loadLatestData();
-    speak(`Lesson completed with ${testScore} percent. Moving to next topic.`);
+    speak(`Lesson completed with ${testScore} percent.`);
   };
 
   /* ================= 4. VOICE RECOGNITION ================= */
@@ -222,7 +214,6 @@ export default function StudentDashboard() {
     } catch (err) { console.error("Chat error", err); }
   };
 
-  // LOGOUT HANDLER (Reusable for button and shortcuts)
   const handleLogout = () => {
     if (window.speechSynthesis) window.speechSynthesis.cancel();
     navigate("/");
@@ -231,40 +222,11 @@ export default function StudentDashboard() {
   /* ================= 5. KEYBOARD SHORTCUTS ================= */
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.altKey && e.key.toLowerCase() === 'q') {
-        handleLogout(); // Correctly stops voice before navigating
-      }
+      if (e.altKey && e.key.toLowerCase() === 'q') handleLogout();
       if (e.altKey && e.key.toLowerCase() === 'w') {
-        if (showWellnessBtn) {
-            speak("Navigating to Wellness Check-in.");
-            navigate("/student/wellness-check");
-        } else {
-            speak("Wellness check not required yet.");
-        }
+        if (showWellnessBtn) navigate("/student/wellness-check");
       }
-      if (e.altKey && e.key.toLowerCase() === 'h') {
-        speak("Opening Hobby Hub.");
-        navigate("/student/hobby-hub");
-      }
-      if (e.altKey && e.key.toLowerCase() === 'p') {
-        const media = document.querySelector('video') || document.querySelector('audio');
-  
-        if (media) {
-          if (media.paused) {
-            media.play();
-            speak("Playing media.");
-          } else {
-            media.pause();
-            speak("Pausing media.");
-          }
-        } else {
-          speak("No lesson media found on this page.");
-        }
-      }
-      if (e.altKey && e.key.toLowerCase() === 't') {
-        const testBtn = document.querySelector('button[style*="background: rgb(6, 95, 70)"]'); 
-        if (testBtn) testBtn.click();
-      }
+      if (e.altKey && e.key.toLowerCase() === 'h') navigate("/student/hobby-hub");
       if (isBlind && e.code === "Space" && document.activeElement.tagName !== "INPUT") {
         e.preventDefault();
         startListening();
@@ -280,12 +242,23 @@ export default function StudentDashboard() {
     <div style={{ backgroundColor: colors.pastelBg, minHeight: "100vh", padding: "20px" }}>
       <div style={{ maxWidth: "1400px", margin: "0 auto", fontFamily: "Inter, sans-serif" }}>
         
+        {/* UPDATED NAVIGATION BAR WITH SUBJECT-WISE LEVELS */}
         <nav style={styles.nav}>
           <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
             <div style={{ fontSize: "26px", fontWeight: "900", color: colors.primaryDeep }}>EduLift</div>
             <div style={styles.badge}>{student.placementDone ? t.modeLearning : t.modeAssessment}</div>
             <div style={{...styles.badge, background: '#e0f2fe', color: '#0369a1'}}>👤 {student.name}</div>
-            <div style={{...styles.badge, background: '#dcfce7', color: '#166534'}}>📐 {student.levels?.maths}</div>
+            
+            {student.placementDone && (
+              <>
+                <div style={{...styles.badge, background: '#dcfce7', color: '#166534'}}>
+                  📐 {t.maths}: {student.levels?.maths}
+                </div>
+                <div style={{...styles.badge, background: '#fef2f2', color: '#991b1b'}}>
+                  🧪 {t.science}: {student.levels?.science}
+                </div>
+              </>
+            )}
           </div>
           <div style={{ display: "flex", gap: "15px" }}>
             <button onClick={() => setLang(lang === 'en' ? 'hi' : 'en')} style={styles.langBtn}>
@@ -329,10 +302,7 @@ export default function StudentDashboard() {
                 </button>
               )}
 
-              <button 
-                onClick={() => navigate("/student/hobby-hub")}
-                style={styles.hobbyHubBtn}
-              >
+              <button onClick={() => navigate("/student/hobby-hub")} style={styles.hobbyHubBtn}>
                 <span style={{ fontSize: "24px" }}>🎨</span>
                 <div style={{ textAlign: "left" }}>
                   <div style={{ fontWeight: "bold", color: "#065f46" }}>{t.hobbyBtn}</div>
@@ -353,12 +323,23 @@ export default function StudentDashboard() {
                 <div style={styles.chatBody}>
                   {messages.length === 0 && <div style={styles.emptyChat}>Ask a question about the lesson!</div>}
                   {messages.map((msg, i) => (
-                    <div key={i} style={{ textAlign: msg.role === "user" ? "right" : "left", marginBottom: "15px" }}>
-                      <div style={{ ...styles.bubble, background: msg.role === "user" ? colors.primaryDeep : "#f1f5f9", color: msg.role === "user" ? "#fff" : "#334155" }}>
-                        {msg.content}
-                      </div>
-                    </div>
-                  ))}
+  <div key={i} style={{ textAlign: msg.role === 'user' ? 'right' : 'left', marginBottom: '10px' }}>
+    <div style={{ 
+      display: 'inline-block', 
+      padding: '10px', 
+      borderRadius: '12px', 
+      background: msg.role === 'user' ? colors.primary : '#e2e8f0', 
+      color: msg.role === 'user' ? '#fff' : '#000', 
+      fontSize: '13px',
+      textAlign: 'left',      
+      maxWidth: '85%',        
+      whiteSpace: 'pre-wrap', 
+      lineHeight: '1.5'       
+    }}>
+      {msg.content}
+    </div>
+  </div>
+))}
                   <div ref={messagesEndRef} />
                 </div>
                 <div style={styles.chatInputRow}>
