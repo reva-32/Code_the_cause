@@ -10,6 +10,16 @@ export const lessons = [
     audio: "/audios/class1-addition.mp3",
   },
   {
+    id: "maths-1-2",
+    subject: "maths",
+    class: "Class 1",
+    chapter: "Arithmetic Basics",
+    topic: "Subtraction",
+    title: "Subtraction Basics",
+    videoId: "yIxG_W6sKAI", // Example video ID
+    audio: "/audios/class1-subtraction.mp3",
+  },
+  {
     id: "maths-2-1",
     subject: "maths",
     class: "Class 2",

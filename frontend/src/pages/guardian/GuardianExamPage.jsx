@@ -24,20 +24,17 @@ export default function GuardianExamPage() {
         const isBlind = (disability?.toLowerCase() === "blind" || disability?.toLowerCase() === "visually impaired");
         const studentGroup = isBlind ? "Blind" : "Standard";
 
-        // 1. Force Subject to match folder (e.g., "Maths")
         const formattedSubject = subject.charAt(0).toUpperCase() + subject.slice(1).toLowerCase();
 
-        // 2. FIX: Ensure "Class 1" becomes "Class_1" (Match the Python logic)
-        // This uses a regex to replace the space with an underscore
-        const cleanLevel = level ? level.trim().replace(/\s+/g, "_") : "Class_1";
+        // ✅ IMPROVED LOGIC:
+        // This removes all underscores first, then forces an underscore between 'Class' and the number
+        let cleanLevel = level ? level.trim().replace(/_/g, "") : "Class1";
+        cleanLevel = cleanLevel.replace(/Class/i, "Class_");
 
-        // 3. Construct filename
         const fileName = `${cleanLevel}_Final_Exam.pdf`;
-
-        // 4. Construct URL
         const fileUrl = `http://localhost:5000/uploads/exams/${formattedSubject}/${studentGroup}/${fileName}`;
 
-        console.log("DEBUG: Requesting File ->", fileName);
+        console.log("DEBUG: Final Filename generated ->", fileName);
         window.open(fileUrl, "_blank");
     };
 
@@ -102,39 +99,45 @@ export default function GuardianExamPage() {
     };
 
     // Put the promoteStudent function outside the component or as a helper
-    const promoteStudent = (studentName, subject) => {
+    const promoteStudent = (studentName, subject, result) => {
         const students = JSON.parse(localStorage.getItem("students")) || [];
         const updated = students.map(s => {
             if (s.name === studentName) {
-                const currentLevel = s.levels?.[subject.toLowerCase()] || "Class 1";
+                const subjectKey = subject.toLowerCase();
+                const isMaths = subjectKey === 'maths';
 
-                // Logic to calculate next level string
-                const currentNum = parseInt(currentLevel.replace("Class ", ""));
-                const nextLevel = `Class ${currentNum + 1}`;
+                // Only move to next class if they passed
+                let nextLevel = s.levels?.[subjectKey] || "Class 1";
+                if (result === 'pass') {
+                    const currentNum = parseInt(nextLevel.replace("Class ", ""));
+                    nextLevel = `Class ${currentNum + 1}`;
+                }
 
                 return {
                     ...s,
-                    // Reset progress for the new level
-                    completedMathsLessons: subject.toLowerCase() === 'maths' ? [] : s.completedMathsLessons,
-                    completedScienceLessons: subject.toLowerCase() === 'science' ? [] : s.completedScienceLessons,
+                    // ✅ FIX: Only clear lessons if they PASSED. 
+                    // If they fail, keep the existing progress so they can see the lessons.
+                    completedMathsLessons: (isMaths && result === 'pass') ? [] : s.completedMathsLessons,
+                    completedScienceLessons: (!isMaths && result === 'pass') ? [] : s.completedScienceLessons,
+
                     levels: {
                         ...s.levels,
-                        [subject.toLowerCase()]: nextLevel
+                        [subjectKey]: nextLevel
                     },
                     examResult: {
                         ...s.examResult,
-                        [subject.toLowerCase()]: 'pass'
+                        [subjectKey]: result // Store 'pass' or 'fail'
                     },
                     examStatus: {
                         ...s.examStatus,
-                        [subject.toLowerCase()]: 'graded'
+                        [subjectKey]: 'graded'
                     }
                 };
             }
             return s;
         });
         localStorage.setItem("students", JSON.stringify(updated));
-        // This triggers the 'storage' event listener in the Student tab
+        setStudents(updated); // Sync the state immediately
     };
 
     return (
@@ -152,8 +155,25 @@ export default function GuardianExamPage() {
                      * Checks for the new subject-specific arrays AND the old general array
                      * as a fallback to ensure the exam unlocks correctly.
                      */
-                    const isMathsEligible = (s.completedMathsLessons?.length > 0) || (s.completedLessons?.length > 0);
-                    const isScienceEligible = (s.completedScienceLessons?.length > 0) || (s.completedLessons?.length > 0);
+                    // 1. Calculate Maths Eligibility
+                    const isMathsEligible = (() => {
+                        const completedCount = s.completedMathsLessons?.length || 0;
+
+                        // ✅ SPECIAL RULE: ADHD Students in Class 1 need exactly 2 lessons
+                        if (s.disability === "ADHD" && s.levels?.maths === "Class 1") {
+                            return completedCount >= 2;
+                        }
+
+                        // Default Rule for everyone else (e.g., must complete at least 1 or 5)
+                        // Your previous code checked for > 0, so we keep that or adjust to lesson count
+                        return completedCount >= 1;
+                    })();
+
+                    // 2. Calculate Science Eligibility (Standard Rule)
+                    const isScienceEligible = (() => {
+                        const completedCount = s.completedScienceLessons?.length || 0;
+                        return completedCount >= 1; // Keep standard logic for Science
+                    })();
 
                     const mathsStatus = s.examStatus?.maths;
                     const scienceStatus = s.examStatus?.science;
@@ -182,13 +202,29 @@ export default function GuardianExamPage() {
                                 <div style={isMathsEligible ? styles.unlockedBox : styles.lockedBox}>
                                     <p style={styles.subjectLabel}>📐 Mathematics</p>
                                     {isMathsEligible ? (
-                                        mathsStatus === "submitted" ? <div style={styles.pendingBox}>⏳ Maths Awaiting Grade</div> :
-                                            mathsStatus === "graded" ? <div style={styles.doneBox}>✅ Maths Graded</div> :
+                                        <>
+                                            {/* If they haven't submitted yet OR if they FAILED the previous attempt */}
+                                            {(mathsStatus !== "submitted" && mathsStatus !== "graded") || s.examResult?.maths === 'fail' ? (
                                                 <>
-                                                    <button onClick={() => handleDownload(s.levels?.maths || "Class 1", "Maths", s.disability)} style={styles.mathBtn}>Download Maths Paper</button>
+                                                    {s.examResult?.maths === 'fail' && (
+                                                        <p style={{ color: '#dc2626', fontSize: '11px', fontWeight: 'bold', margin: '0 0 5px 0' }}>
+                                                            ❌ Last Attempt Failed. Please re-download and retry.
+                                                        </p>
+                                                    )}
+                                                    <button onClick={() => handleDownload(s.levels?.maths || "Class 1", "Maths", s.disability)} style={styles.mathBtn}>
+                                                        {s.examResult?.maths === 'fail' ? "Retry Maths Paper" : "Download Maths Paper"}
+                                                    </button>
                                                     <input type="file" id={`file-maths-${s.name}`} style={styles.fileInput} accept=".pdf" />
-                                                    <button style={styles.submitBtn} onClick={() => handleFileSubmit(s.name, "Maths")}>Submit Maths Answers</button>
+                                                    <button style={styles.submitBtn} onClick={() => handleFileSubmit(s.name, "Maths")}>
+                                                        Submit Maths Answers
+                                                    </button>
                                                 </>
+                                            ) : mathsStatus === "submitted" ? (
+                                                <div style={styles.pendingBox}>⏳ Maths Awaiting Grade</div>
+                                            ) : (
+                                                <div style={styles.doneBox}>✅ Maths Passed & Graded</div>
+                                            )}
+                                        </>
                                     ) : (
                                         <p style={styles.lockText}>🔒 Complete all Maths lessons to unlock this exam.</p>
                                     )}
@@ -198,17 +234,33 @@ export default function GuardianExamPage() {
                                 <div style={isScienceEligible ? styles.unlockedBox : styles.lockedBox}>
                                     <p style={styles.subjectLabel}>🧪 Science</p>
                                     {isScienceEligible ? (
-                                        scienceStatus === "submitted" ? <div style={styles.pendingBox}>⏳ Science Awaiting Grade</div> :
-                                            scienceStatus === "graded" ? <div style={styles.doneBox}>✅ Science Graded</div> :
+                                        <>
+                                            {(scienceStatus !== "submitted" && scienceStatus !== "graded") || s.examResult?.science === 'fail' ? (
                                                 <>
-                                                    <button onClick={() => handleDownload(s.levels?.science || "Class 1", "Science", s.disability)} style={styles.sciBtn}>Download Science Paper</button>
+                                                    {s.examResult?.science === 'fail' && (
+                                                        <p style={{ color: '#dc2626', fontSize: '11px', fontWeight: 'bold', margin: '0 0 5px 0' }}>
+                                                            ❌ Last Attempt Failed. Retry when ready.
+                                                        </p>
+                                                    )}
+                                                    <button onClick={() => handleDownload(s.levels?.science || "Class 1", "Science", s.disability)} style={styles.sciBtn}>
+                                                        {s.examResult?.science === 'fail' ? "Retry Science Paper" : "Download Science Paper"}
+                                                    </button>
                                                     <input type="file" id={`file-science-${s.name}`} style={styles.fileInput} accept=".pdf" />
-                                                    <button style={styles.submitBtn} onClick={() => handleFileSubmit(s.name, "Science")}>Submit Science Answers</button>
+                                                    <button style={styles.submitBtn} onClick={() => handleFileSubmit(s.name, "Science")}>
+                                                        Submit Science Answers
+                                                    </button>
                                                 </>
+                                            ) : scienceStatus === "submitted" ? (
+                                                <div style={styles.pendingBox}>⏳ Science Awaiting Grade</div>
+                                            ) : (
+                                                <div style={styles.doneBox}>✅ Science Passed & Graded</div>
+                                            )}
+                                        </>
                                     ) : (
                                         <p style={styles.lockText}>🔒 Complete all Science lessons to unlock this exam.</p>
                                     )}
                                 </div>
+                            
 
                             </div>
                         </div>

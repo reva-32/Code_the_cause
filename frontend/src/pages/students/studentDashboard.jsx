@@ -311,15 +311,31 @@ export default function StudentDashboard() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isBlind, lang, student, showWellnessBtn]);
 
+  /* ================= 5. UPDATED PROGRESS LOGIC ================= */
   if (!student) return null;
-  const REQUIRED = 1;
+
+  // ✅ SPECIAL ADHD RULE: 
+  // If ADHD and Class 1 Maths, only 2 subtopics needed.
+  // Otherwise, the standard is 5 (or 1 as per your previous code).
+  const getRequiredLessons = (subject) => {
+    const isADHD = student.disability?.toUpperCase() === "ADHD";
+    const isClass1 = student.levels?.[subject] === "Class 1";
+
+    if (isADHD && isClass1 && subject === "maths") {
+      return 2; // ADHD Class 1 Maths requirement
+    }
+    return 5; // Default requirement for everyone else
+  };
+
+  const MATHS_REQUIRED = getRequiredLessons("maths");
+  const SCIENCE_REQUIRED = getRequiredLessons("science");
 
   // Independent status for Maths
-  const mathsDone = (student.completedMathsLessons?.length || 0) >= REQUIRED;
+  const mathsDone = (student.completedMathsLessons?.length || 0) >= MATHS_REQUIRED;
   const mathsLevel = student.levels?.maths || "Class 1";
 
   // Independent status for Science
-  const scienceDone = (student.completedScienceLessons?.length || 0) >= REQUIRED;
+  const scienceDone = (student.completedScienceLessons?.length || 0) >= SCIENCE_REQUIRED;
   const scienceLevel = student.levels?.science || "Class 1";
 
   /* ================= 6. DOWNLOAD LOGIC ================= */
@@ -384,10 +400,22 @@ export default function StudentDashboard() {
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'flex-end' }}>
 
                     {/* Independent Maths Alert */}
-                    {mathsDone && student.examStatus?.maths !== "graded" && (
-                      <div style={{ ...styles.waitingBadge, borderColor: '#16a34a', color: '#166534', background: '#f0fdf4' }}>
-                        📐 Maths Exam Ready ({mathsLevel})
-                      </div>
+                    {mathsDone && (
+                      <>
+                        {/* CASE 1: Student failed - Show Retry Alert */}
+                        {student.examResult?.maths === 'fail' ? (
+                          <div style={{ ...styles.waitingBadge, borderColor: '#ef4444', color: '#991b1b', background: '#fef2f2' }}>
+                            ❌ Exam Failed. Please review lessons and Retry ({mathsLevel})
+                          </div>
+                        ) : (
+                          /* CASE 2: Waiting for first attempt or grading */
+                          student.examStatus?.maths !== "graded" && (
+                            <div style={{ ...styles.waitingBadge, borderColor: '#16a34a', color: '#166534', background: '#f0fdf4' }}>
+                              📐 Maths Exam Ready ({mathsLevel})
+                            </div>
+                          )
+                        )}
+                      </>
                     )}
 
                     {/* NEW: Promotion Celebration Alert */}
@@ -398,8 +426,13 @@ export default function StudentDashboard() {
                     )}
 
                     {/* Progress Pills */}
-                    <div style={styles.statusPill}>M: {student.completedMathsLessons?.length || 0}/{REQUIRED}</div>
-                    <div style={styles.statusPill}>S: {student.completedScienceLessons?.length || 0}/{REQUIRED}</div>
+                    {/* Progress Pills */}
+                    <div style={styles.statusPill}>
+                      M: {student.completedMathsLessons?.length || 0}/{MATHS_REQUIRED}
+                    </div>
+                    <div style={styles.statusPill}>
+                      S: {student.completedScienceLessons?.length || 0}/{SCIENCE_REQUIRED}
+                    </div>
                   </div>
                 </header>
 

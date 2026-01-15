@@ -27,7 +27,6 @@ export default function GradingCenter() {
             return;
         }
 
-        // 1. Identify Student and Subject
         const studentNameFromFile = filename.split('_')[0];
         const subject = filename.toLowerCase().includes("science") ? "science" : "maths";
 
@@ -37,7 +36,6 @@ export default function GradingCenter() {
         const isPassed = percentage >= 40;
         const result = isPassed ? "pass" : "fail";
 
-        // 2. Fetch Latest Local Data
         const allStudents = JSON.parse(localStorage.getItem("students")) || [];
         const studentIdx = allStudents.findIndex(s => s.name.toLowerCase() === studentNameFromFile.toLowerCase());
 
@@ -50,8 +48,7 @@ export default function GradingCenter() {
         const currentClassStr = student.levels?.[subject] || "Class 1";
 
         try {
-            // 3. API Call to get next class name from server
-            const response = await axios.post("http://localhost:5000/api/admin/grade-exam", {
+            await axios.post("http://localhost:5000/api/admin/grade-exam", {
                 studentName: student.name,
                 result,
                 currentClass: currentClassStr
@@ -59,45 +56,47 @@ export default function GradingCenter() {
 
             const updatedStudent = { ...student };
 
-            // Ensure objects exist
             if (!updatedStudent.levels) updatedStudent.levels = { maths: "Class 1", science: "Class 1" };
             if (!updatedStudent.examResult) updatedStudent.examResult = {};
             if (!updatedStudent.examStatus) updatedStudent.examStatus = {};
 
+            // --- 🟢 CASE: STUDENT PASSED ---
             if (isPassed) {
-                // 1. FORCED CALCULATION (Don't trust the server for the class name)
-                // This removes everything except the digits and adds 1
                 const currentNumber = parseInt(currentClassStr.replace(/\D/g, "")) || 1;
                 const nextLevel = `Class ${currentNumber + 1}`;
 
-                console.log(`Promoting from ${currentClassStr} to ${nextLevel}`);
-
-                // 2. APPLY TO STUDENT OBJECT
                 updatedStudent.levels[subject] = nextLevel;
 
-                // 3. WIPE PROGRESS FOR THE NEW CLASS
+                // Clear progress ONLY because they are moving to a NEW class level
                 if (subject === "science") {
                     updatedStudent.completedScienceLessons = [];
                 } else {
                     updatedStudent.completedMathsLessons = [];
                 }
 
-                // 4. RESET EXAM STATUS
+                // Reset status so they can start the new class fresh
                 updatedStudent.examStatus[subject] = "none";
                 updatedStudent.examResult[subject] = null;
+            }
+            // --- 🔴 CASE: STUDENT FAILED ---
+            else {
+                // Keep the level the same
+                updatedStudent.levels[subject] = currentClassStr;
 
-            } else {
+                // ✅ CRITICAL FIX: DO NOT clear completedLessons here.
+                // By doing nothing to the lesson arrays, the lessons stay visible.
+
+                // Update status so student knows they failed and can retake
                 updatedStudent.examStatus[subject] = "graded";
                 updatedStudent.examResult[subject] = "fail";
             }
-            
+
             allStudents[studentIdx] = updatedStudent;
             localStorage.setItem("students", JSON.stringify(allStudents));
 
-            // Delete file from server
             await axios.delete(`http://localhost:5000/api/admin/delete-submission/${filename}`);
 
-            alert(`${isPassed ? "🎉 PROMOTED" : "❌ FAILED"}: ${student.name} is now in ${updatedStudent.levels[subject]}`);
+            alert(`${isPassed ? "🎉 PROMOTED" : "❌ FAILED"}: ${student.name} is in ${updatedStudent.levels[subject]}`);
 
             setStudents(allStudents);
             fetchSubmissions();
@@ -107,7 +106,7 @@ export default function GradingCenter() {
             alert("Server failed to process grading.");
         }
     };
-
+    
     return (
         <div style={{ display: "flex", minHeight: "100vh", background: "#f8fafc" }}>
             <Sidebar />
