@@ -21,15 +21,21 @@ export default function GuardianExamPage() {
     }, []);
 
     const handleDownload = (level, subject, disability) => {
+        // 1. Determine group (Matches backend folder logic)
         let studentGroup = (disability === "Visually Impaired" || disability === "Blind") ? "Blind" : "Standard";
 
-        // Match the backend folder naming: "Class 1" -> "Class_1"
-        const cleanLevel = level ? level.replace(/\s+/g, "_") : "Class_1";
-        const fileUrl = `http://localhost:5000/uploads/exams/${subject}/${studentGroup}/${cleanLevel}_Final_Exam.pdf`;
+        // 2. Format Level: "Class 1" -> "Class_1" 
+        // We use .replace(" ", "_") to match the Admin's python logic exactly
+        const cleanLevel = level ? level.replace(" ", "_") : "Class_1";
 
+        // 3. The Path (Double-check that subject is "Maths" or "Science" with a Capital Letter)
+        const fileName = `${cleanLevel}_Final_Exam.pdf`;
+        const fileUrl = `http://localhost:5000/uploads/exams/${subject}/${studentGroup}/${fileName}`;
+
+        console.log("Requesting URL:", fileUrl); // Look at this in the Inspect -> Console
         window.open(fileUrl, "_blank");
     };
-
+    
     const handleFileSubmit = async (studentName, subject) => {
         const inputId = subject === "Maths" ? `file-maths-${studentName}` : `file-science-${studentName}`;
         const fileInput = document.getElementById(inputId);
