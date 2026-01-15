@@ -21,21 +21,26 @@ export default function GuardianExamPage() {
     }, []);
 
     const handleDownload = (level, subject, disability) => {
-        // 1. Determine group (Matches backend folder logic)
-        let studentGroup = (disability === "Visually Impaired" || disability === "Blind") ? "Blind" : "Standard";
+        const isBlind = (disability?.toLowerCase() === "blind" || disability?.toLowerCase() === "visually impaired");
+        const studentGroup = isBlind ? "Blind" : "Standard";
 
-        // 2. Format Level: "Class 1" -> "Class_1" 
-        // We use .replace(" ", "_") to match the Admin's python logic exactly
-        const cleanLevel = level ? level.replace(" ", "_") : "Class_1";
+        // 1. Force Subject to match folder (e.g., "Maths")
+        const formattedSubject = subject.charAt(0).toUpperCase() + subject.slice(1).toLowerCase();
 
-        // 3. The Path (Double-check that subject is "Maths" or "Science" with a Capital Letter)
+        // 2. FIX: Ensure "Class 1" becomes "Class_1" (Match the Python logic)
+        // This uses a regex to replace the space with an underscore
+        const cleanLevel = level ? level.trim().replace(/\s+/g, "_") : "Class_1";
+
+        // 3. Construct filename
         const fileName = `${cleanLevel}_Final_Exam.pdf`;
-        const fileUrl = `http://localhost:5000/uploads/exams/${subject}/${studentGroup}/${fileName}`;
 
-        console.log("Requesting URL:", fileUrl); // Look at this in the Inspect -> Console
+        // 4. Construct URL
+        const fileUrl = `http://localhost:5000/uploads/exams/${formattedSubject}/${studentGroup}/${fileName}`;
+
+        console.log("DEBUG: Requesting File ->", fileName);
         window.open(fileUrl, "_blank");
     };
-    
+
     const handleFileSubmit = async (studentName, subject) => {
         const inputId = subject === "Maths" ? `file-maths-${studentName}` : `file-science-${studentName}`;
         const fileInput = document.getElementById(inputId);

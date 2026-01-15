@@ -187,12 +187,36 @@ def grade_exam():
     
     return jsonify({"status": "success", "result": "fail", "nextClass": current_class}), 200
 
-# --- 6. FILE SERVING ---
+# --- 6. FILE SERVING (ROBUST VERSION) ---
 
-@app.route('/uploads/<path:filename>')
-def serve_file(filename):
-    absolute_path = os.path.join(os.getcwd(), BASE_UPLOAD_FOLDER)
-    return send_from_directory(absolute_path, filename)
-    
+@app.route('/uploads/exams/<subject>/<group>/<filename>')
+def serve_exam(subject, group, filename):
+    """Explicitly serve exam papers from subject/group subfolders"""
+    try:
+        # Get the absolute path to the backend folder
+        root_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # Combine to get: C:/.../backend/uploads/exams/Maths/Standard/
+        directory = os.path.join(root_dir, 'uploads', 'exams', subject, group)
+        
+        print(f"DEBUG: Looking for file in: {directory}") # Look at your terminal/cmd
+        return send_from_directory(directory, filename)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 404
+
+@app.route('/uploads/notes/<filename>')
+def serve_notes(filename):
+    """Serve lesson notes from uploads/notes"""
+    root_dir = os.path.dirname(os.path.abspath(__file__))
+    directory = os.path.join(root_dir, 'uploads', 'notes')
+    return send_from_directory(directory, filename)
+
+@app.route('/uploads/submissions/<filename>')
+def serve_submissions(filename):
+    """Serve student answer sheets"""
+    root_dir = os.path.dirname(os.path.abspath(__file__))
+    directory = os.path.join(root_dir, 'uploads', 'submissions')
+    return send_from_directory(directory, filename)
+        
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

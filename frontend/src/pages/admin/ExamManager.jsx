@@ -20,10 +20,10 @@ export default function ExamManager() {
 
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("classLevel", selectedClass);
 
-        // ✅ 2. ADD FORM DATA APPENDS HERE
-        // (Must match the keys your Flask backend expects)
+        // Ensure we send the class name exactly as "Class 1" 
+        // The Python backend will handle the underscore conversion
+        formData.append("classLevel", selectedClass);
         formData.append("subject", subject);
         formData.append("studentType", studentType);
 
