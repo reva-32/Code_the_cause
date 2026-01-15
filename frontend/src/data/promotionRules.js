@@ -12,27 +12,35 @@ export function applyPromotion({ student, subject, score, isFinalExam = false })
   const updated = { ...student };
   const subKey = subject.toLowerCase();
 
-  if (!updated.levels) updated.levels = {};
+  // Ensure data structures exist
+  if (!updated.levels) updated.levels = { maths: "Class 1", science: "Class 1" };
   if (!updated.scores) updated.scores = {};
-
-  // Initialize subject-specific completion if not present
   if (!updated.completedMathsLessons) updated.completedMathsLessons = [];
   if (!updated.completedScienceLessons) updated.completedScienceLessons = [];
 
+  // Always save the score
   updated.scores[subject] = score;
 
-  // BLOCK PROMOTION unless it's a Final Exam
-  if (isFinalExam && score >= 90) {
+  // --- THE SAFETY LOCK ---
+  // Promotion ONLY happens if it is a Final Exam and score is high.
+  if (isFinalExam === true && score >= 90) {
     const currentLevel = updated.levels[subKey] || "Class 1";
-    updated.levels[subKey] = getNextClass(currentLevel);
-    updated.lastResult = "PROMOTED";
+    const nextLevel = getNextClass(currentLevel);
 
-    // Reset lessons for the NEW class level
-    if (subKey === 'maths') updated.completedMathsLessons = [];
-    if (subKey === 'science') updated.completedScienceLessons = [];
+    // Only update if there is actually a next class to go to
+    if (nextLevel !== currentLevel) {
+      updated.levels[subKey] = nextLevel;
+      updated.lastResult = "PROMOTED";
 
-  } else if (score >= 90) {
-    updated.lastResult = "TOPIC_PASS"; // Level remains the same
+      // Reset progress for the NEW grade level
+      if (subKey === 'maths') updated.completedMathsLessons = [];
+      if (subKey === 'science') updated.completedScienceLessons = [];
+    }
+  }
+  // If it's NOT a final exam, we just record the result and STOP.
+  else if (score >= 90) {
+    updated.lastResult = "TOPIC_PASS";
+    // levels[subKey] remains UNCHANGED here.
   } else {
     updated.lastResult = "FAIL";
   }
@@ -41,7 +49,6 @@ export function applyPromotion({ student, subject, score, isFinalExam = false })
 }
 
 export function shouldShowTest({ student, lessonId }) {
-  // Check both global and subject-specific arrays for safety
   const allCompleted = [
     ...(student.completedLessons || []),
     ...(student.completedMathsLessons || []),

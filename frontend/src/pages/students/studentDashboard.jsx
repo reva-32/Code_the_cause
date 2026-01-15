@@ -96,36 +96,65 @@ export default function StudentDashboard() {
   };
 
   /* ================= 2. DATA LOADING & AUDIO GUIDE ================= */
+  
+  /* ================= 1. THE DATA LOADER (Defined at Top Level) ================= */
   const loadLatestData = () => {
     const name = localStorage.getItem("loggedInStudent");
     const students = JSON.parse(localStorage.getItem("students")) || [];
     const loggedIn = students.find((s) => s.name === name);
-    
+
     if (loggedIn) {
       const processed = {
         ...loggedIn,
-        // Split completion tracking
         completedMathsLessons: loggedIn.completedMathsLessons || [],
         completedScienceLessons: loggedIn.completedScienceLessons || [],
-        // Keep existing fields
         verifiedSummaries: loggedIn.verifiedSummaries || [],
-        scores: loggedIn.scores || {},
-        // Ensure levels is an object
         levels: loggedIn.levels || { maths: "Class 1", science: "Class 1" }
       };
       setStudent(processed);
+
+      // Update wellness button visibility
       const needsWellness = shouldShowMentalHealthCheck(name);
       setShowWellnessBtn(needsWellness);
-
-      if (isBlind && needsWellness) {
-          setTimeout(() => speak("A weekly wellness check is available. Press Alt plus W to start your check-in."), 3000);
-      }
-    } else { 
-      navigate("/"); 
+    } else {
+      navigate("/");
     }
   };
 
-  useEffect(() => { loadLatestData(); }, []);
+  /* ================= 2. THE SYNC EFFECTS ================= */
+
+  // Initial Load and Cross-Tab Synchronization
+  useEffect(() => {
+    loadLatestData();
+
+    // Listen for changes from the Guardian tab
+    window.addEventListener('storage', loadLatestData);
+    return () => window.removeEventListener('storage', loadLatestData);
+  }, []);
+
+  // Voice Welcome (Depends on student state)
+  useEffect(() => {
+    if (student && isBlind) {
+      const welcomeMsg = `Welcome ${student.name}. Your levels are ${student.levels.maths} for Maths and ${student.levels.science} for Science.`;
+      speak(welcomeMsg);
+    }
+  }, [student?.name]);
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      // This fires whenever the Admin saves grading in the other tab
+      const name = localStorage.getItem("loggedInStudent");
+      const allStudents = JSON.parse(localStorage.getItem("students")) || [];
+      const updatedData = allStudents.find(s => s.name === name);
+
+      if (updatedData) {
+        setStudent(updatedData); // This forces the dashboard to refresh with Class 2
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   useEffect(() => {
     if (student && isBlind) {
@@ -180,7 +209,7 @@ export default function StudentDashboard() {
       if (s.name === student.name) {
         const subKey = subject.toLowerCase();
 
-        // 1. Record completion for the specific subject array
+        // 1. Record completion for the subject-specific array
         if (subKey === "maths") {
           const completed = s.completedMathsLessons || [];
           if (!completed.includes(lessonId)) completed.push(lessonId);
@@ -191,25 +220,46 @@ export default function StudentDashboard() {
           s.completedScienceLessons = completed;
         }
 
-        // 2. Update the shared completedLessons list for legacy components
-        const allCompleted = s.completedLessons || [];
-        if (!allCompleted.includes(lessonId)) allCompleted.push(lessonId);
-        s.completedLessons = allCompleted;
+        // 2. Update legacy global completion tracking
+        const allComp = s.completedLessons || [];
+        if (!allComp.includes(lessonId)) allComp.push(lessonId);
+        s.completedLessons = allComp;
 
-        // 3. Save the score
+        // 3. Save the score for this specific topic
         s.scores = { ...s.scores, [lessonId]: testScore };
 
-        // 🛑 DO NOT call promoteIfEligible here. 
-        // Promotion is now handled only via the Final Exam flag in promotionRules.js
+        // 🛑 LEVEL PROTECTION:
+        // We do not modify s.levels here. 
+        // The student stays in their current class level regardless of the score.
       }
       return s;
     });
 
+    // 4. Persistence and UI Refresh
     localStorage.setItem("students", JSON.stringify(updatedStudents));
-    setAssignmentStep("watch");
-    loadLatestData();
-    speak(`Lesson completed with ${testScore} percent.`);
+    setAssignmentStep("watch"); // Force reset to video mode for the next lesson
+    loadLatestData(); // Pull the new lesson counts into the dashboard state
+
+    speak(`Topic completed. Your score is ${testScore} percent. Great job staying in your current level!`);
   };
+
+  useEffect(() => {
+    // If the student has just passed a topic test
+    if (student?.lastResult === "TOPIC_PASS") {
+      const timer = setTimeout(() => {
+        const students = JSON.parse(localStorage.getItem("students")) || [];
+        const updated = students.map(s =>
+          s.name === student.name ? { ...s, lastResult: null } : s
+        );
+
+        localStorage.setItem("students", JSON.stringify(updated));
+        // This triggers a re-render to hide the message
+        loadLatestData();
+      }, 5000); // 5 seconds
+
+      return () => clearTimeout(timer);
+    }
+  }, [student?.lastResult]);
   
   /* ================= 4. VOICE RECOGNITION ================= */
   const startListening = () => {
@@ -262,6 +312,15 @@ export default function StudentDashboard() {
   }, [isBlind, lang, student, showWellnessBtn]);
 
   if (!student) return null;
+  const REQUIRED = 1;
+
+  // Independent status for Maths
+  const mathsDone = (student.completedMathsLessons?.length || 0) >= REQUIRED;
+  const mathsLevel = student.levels?.maths || "Class 1";
+
+  // Independent status for Science
+  const scienceDone = (student.completedScienceLessons?.length || 0) >= REQUIRED;
+  const scienceLevel = student.levels?.science || "Class 1";
 
   return (
     <div style={{ backgroundColor: colors.pastelBg, minHeight: "100vh", padding: "20px" }}>
@@ -299,31 +358,45 @@ export default function StudentDashboard() {
           <PlacementTest student={student} setStudent={setStudent} />
         ) : (
           <div style={styles.dashboardGrid}>
-            {/* MAIN LESSON AREA */}
-            <main style={styles.card}>
-                {/* In your Main Lesson Area Header */}
+              <main style={styles.card}>
                 <header style={styles.sectionHeader}>
                   <h2 style={{ margin: 0 }}>{t.modeLearning}</h2>
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    {/* Explicitly show progress for both subjects to show the student they are still in the same level */}
-                    <div style={styles.statusPill}>Maths: {student.completedMathsLessons?.length || 0} Done</div>
-                    <div style={styles.statusPill}>Science: {student.completedScienceLessons?.length || 0} Done</div>
+
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'flex-end' }}>
+
+                    {/* Independent Maths Alert */}
+                    {mathsDone && student.examStatus?.maths !== "graded" && (
+                      <div style={{ ...styles.waitingBadge, borderColor: '#16a34a', color: '#166534', background: '#f0fdf4' }}>
+                        📐 Maths Exam Ready ({mathsLevel})
+                      </div>
+                    )}
+
+                    {/* NEW: Promotion Celebration Alert */}
+                    {student.examResult?.maths === 'pass' && (
+                      <div style={styles.topicPassAlert}>
+                        🎉 Promoted! You are now in {student.levels?.maths} for Maths!
+                      </div>
+                    )}
+
+                    {/* Progress Pills */}
+                    <div style={styles.statusPill}>M: {student.completedMathsLessons?.length || 0}/{REQUIRED}</div>
+                    <div style={styles.statusPill}>S: {student.completedScienceLessons?.length || 0}/{REQUIRED}</div>
                   </div>
                 </header>
 
-              <Lessons
-                student={student}
-                onComplete={handleCompleteLesson}
-                lang={lang} t={t}
-                setWatchProgress={setActiveWatchProgress}
-                primaryColor={colors.primaryDeep}
-                assignmentStep={assignmentStep}
-                setAssignmentStep={setAssignmentStep}
-                onUpload={handleAssignmentUpload}
-                isVerifying={isVerifying}
-                speak={speak}
-              />
-            </main>
+                <Lessons
+                  student={student}
+                  onComplete={handleCompleteLesson}
+                  lang={lang} t={t}
+                  setWatchProgress={setActiveWatchProgress}
+                  primaryColor={colors.primaryDeep}
+                  assignmentStep={assignmentStep}
+                  setAssignmentStep={setAssignmentStep}
+                  onUpload={handleAssignmentUpload}
+                  isVerifying={isVerifying}
+                  speak={speak}
+                />
+              </main>
 
             {/* RIGHT SIDEBAR */}
             <div style={styles.rightSidebar}>
@@ -429,12 +502,45 @@ const styles = {
   dashboardGrid: { display: "grid", gridTemplateColumns: "1fr 460px", gap: "25px", height: "820px" },
   card: { background: "#fff", borderRadius: "30px", padding: "30px", overflowY: "auto", boxShadow: "0 10px 30px rgba(0,0,0,0.02)" },
   rightSidebar: { display: "flex", flexDirection: "column", gap: "20px", height: "100%" },
-  sectionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', borderBottom: '1px solid #f1f5f9', paddingBottom: '20px' },
-  statusPill: { background: '#e0f2fe', color: '#0369a1', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: 'bold' },
+
+  // Header & Status Elements
+  sectionHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '30px',
+    borderBottom: '1px solid #f1f5f9',
+    paddingBottom: '20px'
+  },
+  statusPill: {
+    background: '#e0f2fe',
+    color: '#0369a1',
+    padding: '6px 12px',
+    borderRadius: '20px',
+    fontSize: '13px',
+    fontWeight: 'bold'
+  },
+  topicPassAlert: {
+    background: "#f0fdf4",
+    color: "#16a34a",
+    padding: "8px 16px",
+    borderRadius: "12px",
+    fontSize: "13px",
+    fontWeight: "600",
+    border: "1px solid #bbf7d0",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    animation: "fadeIn 0.3s ease-out"
+  },
+
+  // Widgets & Banners
   progressCard: { background: "#fff", borderRadius: "24px", padding: "20px", boxShadow: "0 4px 15px rgba(0,0,0,0.03)" },
   helperText: { fontSize: '11px', color: '#94a3b8', marginTop: '10px', textAlign: 'center' },
   wellnessBanner: { display: "flex", alignItems: "center", gap: "15px", background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)", border: "none", padding: "18px", borderRadius: "24px", cursor: "pointer", width: "100%" },
   hobbyHubBtn: { display: "flex", gap: "15px", alignItems: "center", background: "#f0fdf4", border: "2px solid #10b981", padding: "18px", borderRadius: "24px", cursor: "pointer", width: "100%" },
+
+  // Chatbot Styles
   chatbotContainer: { flex: 1, background: "#fff", borderRadius: "30px", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 10px 30px rgba(0,0,0,0.02)" },
   chatHeader: { background: "#065f46", color: "#fff", padding: "20px 25px", fontWeight: "bold", display: 'flex', justifyContent: 'space-between' },
   chatBody: { flex: 1, overflowY: "auto", padding: "25px", background: '#fafafa' },
@@ -443,5 +549,19 @@ const styles = {
   chatInputRow: { padding: "20px", borderTop: "1px solid #f1f5f9", display: "flex", gap: "12px" },
   input: { flex: 1, padding: "14px", borderRadius: "15px", border: "1px solid #e2e8f0" },
   sendBtn: { background: "#065f46", color: "#fff", border: "none", width: "55px", borderRadius: "15px", cursor: "pointer" },
-  pulse: { fontSize: '11px', color: '#ef4444' }
+  pulse: { fontSize: '11px', color: '#ef4444' },
+
+  waitingBadge: {
+    background: "#fef3c7",
+    color: "#92400e",
+    padding: "10px 20px",
+    borderRadius: "14px",
+    fontWeight: "bold",
+    fontSize: "13px",
+    border: "1px solid #fcd34d",
+    boxShadow: "0 4px 12px rgba(251, 191, 36, 0.1)",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px"
+  }
 };

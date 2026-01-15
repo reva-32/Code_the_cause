@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { TOPIC_TEST, evaluateTopicTest, getSimplifiedQuestions } from "../../data/topicTests";
+import { promoteIfEligible } from "../../logic/promotionEngine";
 
 export default function TopicTest() {
   const navigate = useNavigate();
@@ -116,46 +117,41 @@ export default function TopicTest() {
     const students = JSON.parse(localStorage.getItem("students")) || [];
     const updated = students.map(s => {
       if (s.name === student.name) {
-        const completed = s.completedLessons || [];
-        if (result >= 35 && !completed.includes(lessonId)) completed.push(lessonId);
+        // 1. Identify the correct subject array
+        const subjectKey = subject.toLowerCase() === 'maths' ? 'completedMathsLessons' : 'completedScienceLessons';
 
+        // 2. Update BOTH the general and subject-specific arrays
+        const generalCompleted = s.completedLessons || [];
+        const subjectCompleted = s[subjectKey] || [];
+
+        if (result >= 35) {
+          if (!generalCompleted.includes(lessonId)) generalCompleted.push(lessonId);
+          if (!subjectCompleted.includes(lessonId)) subjectCompleted.push(lessonId);
+        }
+
+        // 3. Handle Fail Attempts
         let failMap = s.failAttempts || {};
-        let currentFails = failMap[lessonId] || 0;
+        let currentFails = result < 35 ? (failMap[lessonId] || 0) + 1 : 0;
 
-        if (result < 35) {
-          currentFails += 1;
-          if (currentFails >= 2) {
-            const alerts = JSON.parse(localStorage.getItem("system_alerts")) || [];
-            alerts.push({
-              id: Date.now(),
-              studentName: s.name,
-              lessonId,
-              subject: subject,
-              issue: `${subject}_fail`,
-              type: "RED_ALERT",
-              status: "pending_admin"
-            });
-            localStorage.setItem("system_alerts", JSON.stringify(alerts));
-          }
-        } else {
-          currentFails = 0; 
-        }
+        // ... (keep your alert logic here) ...
 
-        let newLevels = { ...s.levels };
-        if (result >= 90) {
-          const currentNum = parseInt(s.levels[subject].replace(/\D/g, ""));
-          if (!isNaN(currentNum)) newLevels[subject] = `Class ${currentNum + 1}`;
-        }
+        const updatedStudent = promoteIfEligible(s, subject, result, false);
 
-        return { ...s, completedLessons: completed, levels: newLevels, failAttempts: { ...failMap, [lessonId]: currentFails } };
+        return {
+          ...updatedStudent,
+          completedLessons: generalCompleted,
+          [subjectKey]: subjectCompleted, // Save to completedScienceLessons or completedMathsLessons
+          failAttempts: { ...failMap, [lessonId]: currentFails }
+        };
       }
       return s;
     });
-
+    
     localStorage.setItem("students", JSON.stringify(updated));
+
     if (isBlind) {
-        const feedback = result >= 35 ? "Great job! You passed." : "You did your best. Let's practice some more later.";
-        speak(`Test complete. ${feedback} Your score is ${result} percent. Press Enter to go back to your dashboard.`);
+      const feedback = result >= 35 ? "Great job! You passed." : "Keep practicing.";
+      speak(`Test complete. Your score is ${result} percent. Press Enter to return to dashboard.`);
     }
   };
 

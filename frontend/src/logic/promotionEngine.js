@@ -1,32 +1,35 @@
-export function promoteIfEligible(student, subject, score, isFinalExam = false) {
-  // 1. BLOCK: Only allow promotion if explicitly marked as Final Exam
-  if (!isFinalExam) return student;
+import { applyPromotion } from "../data/promotionRules";
 
-  // 2. BLOCK: Score must meet the threshold
-  if (score < 90) return student;
+/**
+ * Handles the logic for processing test results.
+ * Rename to promoteIfEligible to match TopicTest.jsx imports
+ */
+export const promoteIfEligible = (student, subject, score, isFinal = false) => {
 
-  // 3. NORMALIZE: Ensure subject is lowercase to match your student data structure
-  const subjectKey = subject.toLowerCase();
-  const currentLevel = student.levels?.[subjectKey] || "Class 1";
+  // 1. Log for debugging
+  console.log(`[PromotionEngine] Subject: ${subject}, Score: ${score}, IsFinal: ${isFinal}`);
 
-  // 4. LIMIT: Prevent promotion beyond the highest available class
-  if (currentLevel === "Class 3") return student;
+  // 2. Deep clone the student to avoid direct state mutation
+  const studentCopy = JSON.parse(JSON.stringify(student));
 
-  const nextClassMap = {
-    "Class 1": "Class 2",
-    "Class 2": "Class 3",
-  };
+  // 3. Call the rules engine with the strict final exam flag
+  const updatedStudent = applyPromotion({
+    student: studentCopy,
+    subject,
+    score,
+    isFinalExam: isFinal
+  });
 
-  const nextLevel = nextClassMap[currentLevel];
+  // 4. THE SAFETY GUARD:
+  // If it's NOT a final exam, we forcibly ensure the level stays the same
+  // This acts as a backup in case promotionRules.js has a loophole.
+  if (!isFinal) {
+    const subKey = subject.toLowerCase();
+    if (updatedStudent.levels[subKey] !== student.levels[subKey]) {
+      console.warn("Manual Reversion: Blocking unauthorized promotion.");
+      updatedStudent.levels[subKey] = student.levels[subKey];
+    }
+  }
 
-  // 5. RETURN: Updated object with new level and RESET progress for that subject
-  return {
-    ...student,
-    levels: {
-      ...student.levels,
-      [subjectKey]: nextLevel, // Correctly updates 'maths' or 'science'
-    },
-    // Clear completion arrays so the student starts at 0% in the new class
-    [subjectKey === "maths" ? "completedMathsLessons" : "completedScienceLessons"]: []
-  };
-}
+  return updatedStudent;
+};
