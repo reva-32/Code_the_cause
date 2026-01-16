@@ -12,17 +12,14 @@ const translations = {
   en: {
     welcome: "Welcome back", 
     logout: "Logout", 
-    doubtSolver: "Study Buddy AI",
-    askDoubt: "Ask your doubt here...", 
+    doubtSolver: "AI DOUBT SOLVER",
+    askDoubt: "Ask a doubt...", 
     modeLearning: "Learning Path",
     modeAssessment: "Initial Assessment", 
     maths: "Mathematics", 
     science: "Science",
     wellnessBtn: "🌿 Weekly Wellness Check",
     hobbyBtn: "My Hobby Hub",
-    timeRemaining: "Time Left",
-    sessionExpired: "Study Session Ended",
-    lockoutMsg: "To protect your eyes, please take a break. You can return in:",
     badges: { starter: "Starter", achiever: "Achiever", master: "Master" }
   },
   hi: {
@@ -36,15 +33,11 @@ const translations = {
     science: "विज्ञान",
     wellnessBtn: "🌿 साप्ताहिक स्वास्थ्य जांच",
     hobbyBtn: "मेरा शौक केंद्र",
-    timeRemaining: "समय शेष",
-    sessionExpired: "अध्ययन सत्र समाप्त",
-    lockoutMsg: "अपनी आंखों की सुरक्षा के लिए, कृपया ब्रेक लें। आप वापस आ सकते हैं:",
     badges: { starter: "शुरुआत", achiever: "सफल", master: "महारत" }
   }
 };
 
 export default function StudentDashboard() {
-  /* ================= STATE MANAGEMENT ================= */
   const [student, setStudent] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -54,12 +47,10 @@ export default function StudentDashboard() {
   const [isListening, setIsListening] = useState(false);
   const [assignmentStep, setAssignmentStep] = useState("watch"); 
   const [isVerifying, setIsVerifying] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(5 * 60 * 60);
   const [showGuide, setShowGuide] = useState(false);
-
-  /* --- TIMER STATES --- */
-  const [studyTimeLeft, setStudyTimeLeft] = useState(5 * 60 * 60); // 5 Hours
-  const [lockoutTimeLeft, setLockoutTimeLeft] = useState(0); // 3 Hours Block
-  const [isLocked, setIsLocked] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [greeting, setGreeting] = useState("Welcome");
 
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -72,113 +63,130 @@ export default function StudentDashboard() {
     primaryDeep: "#065f46",
     pastelBg: "#f0fdf4",
     darkSlate: "#0f172a",
-    wellnessGold: "#f59e0b",
-    timerRed: "#ef4444",
-    botBubble: "#f1f5f9",
-    userBubble: "#065f46"
+    wellnessGold: "#f59e0b"
   };
 
-  /* ================= 1. THE SCREEN TIME LOGIC ================= */
-  useEffect(() => {
-    const studentName = localStorage.getItem("loggedInStudent");
-    if (!studentName) return;
-
-    const savedStudy = localStorage.getItem(`study_timer_${studentName}`);
-    const lockExpiry = localStorage.getItem(`lock_expiry_${studentName}`);
-
-    if (lockExpiry && Date.now() < parseInt(lockExpiry)) {
-      setIsLocked(true);
-      setLockoutTimeLeft(Math.floor((parseInt(lockExpiry) - Date.now()) / 1000));
-    } else if (savedStudy) {
-      setStudyTimeLeft(parseInt(savedStudy));
-    }
-
-    const timerInterval = setInterval(() => {
-      if (isLocked) {
-        setLockoutTimeLeft((prev) => {
-          if (prev <= 1) {
-            setIsLocked(false);
-            localStorage.removeItem(`lock_expiry_${studentName}`);
-            setStudyTimeLeft(5 * 60 * 60);
-            return 0;
-          }
-          return prev - 1;
-        });
-      } else {
-        setStudyTimeLeft((prev) => {
-          const newTime = prev - 1;
-          localStorage.setItem(`study_timer_${studentName}`, newTime.toString());
-          if (newTime <= 0) {
-            const expiry = Date.now() + (3 * 60 * 60 * 1000); 
-            localStorage.setItem(`lock_expiry_${studentName}`, expiry.toString());
-            setIsLocked(true);
-            setLockoutTimeLeft(3 * 60 * 60);
-            return 0;
-          }
-          return newTime;
-        });
-      }
-    }, 1000);
-
-    return () => clearInterval(timerInterval);
-  }, [isLocked]);
-
-  /* ================= 2. VOICE SYNTHESIS ================= */
+  /* ================= 1. VOICE SYNTHESIS ================= */
   useEffect(() => {
     const loadVoices = () => window.speechSynthesis.getVoices();
     loadVoices();
     window.speechSynthesis.onvoiceschanged = loadVoices;
-    return () => { if (window.speechSynthesis) window.speechSynthesis.cancel(); };
+
+    return () => {
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+    };
   }, []);
+
+  useEffect(() => {
+      if (!student) return;
+      const interval = setInterval(() => {
+        setTimeLeft((prev) => (prev <= 1 ? 0 : prev - 1));
+      }, 1000);
+      return () => clearInterval(interval);
+    }, [student]);
 
   const speak = (text) => {
     if (!isBlind || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-    const cleanText = text.replace(/📌|📖|💡/g, "").replace(/\n/g, ". ");
+
+    const cleanText = text
+      .replace(/📌|📖|💡/g, "")
+      .replace(/ANSWER:|📌 ANSWER/gi, "The answer is: ")
+      .replace(/EXPLANATION:|📖 EXPLANATION/gi, "The explanation is: ")
+      .replace(/\+/g, " plus ")
+      .replace(/\n/g, ". ");
+
     const utterance = new SpeechSynthesisUtterance(cleanText);
+    const voices = window.speechSynthesis.getVoices();
+    const indianFemale = voices.find(v =>
+      (v.lang.includes("en-IN") || v.lang.includes("hi-IN")) &&
+      (v.name.toLowerCase().includes("female") || v.name.toLowerCase().includes("google"))
+    );
+    if (indianFemale) utterance.voice = indianFemale;
     utterance.rate = 0.9;
     window.speechSynthesis.speak(utterance);
   };
 
-  /* ================= 3. DATA LOADING ================= */
+  /* ================= 2. DATA LOADING & AUDIO GUIDE ================= */
+  
+  /* ================= 1. THE DATA LOADER (Defined at Top Level) ================= */
   const loadLatestData = () => {
     const name = localStorage.getItem("loggedInStudent");
     const students = JSON.parse(localStorage.getItem("students")) || [];
     const loggedIn = students.find((s) => s.name === name);
 
     if (loggedIn) {
-      setStudent({
+      const processed = {
         ...loggedIn,
         completedMathsLessons: loggedIn.completedMathsLessons || [],
         completedScienceLessons: loggedIn.completedScienceLessons || [],
         verifiedSummaries: loggedIn.verifiedSummaries || [],
         levels: loggedIn.levels || { maths: "Class 1", science: "Class 1" }
-      });
-      setShowWellnessBtn(shouldShowMentalHealthCheck(name));
-      
-      const hasSeenGuide = localStorage.getItem(`guide_seen_${name}`);
-      if (!hasSeenGuide) {
-        setShowGuide(true);
-        localStorage.setItem(`guide_seen_${name}`, "true");
-      }
+      };
+      setStudent(processed);
+
+      // Update wellness button visibility
+      const needsWellness = shouldShowMentalHealthCheck(name);
+      setShowWellnessBtn(needsWellness);
     } else {
       navigate("/");
     }
   };
 
+  /* ================= 2. THE SYNC EFFECTS ================= */
+
+  // Initial Load and Cross-Tab Synchronization
   useEffect(() => {
     loadLatestData();
+
+    // Listen for changes from the Guardian tab
     window.addEventListener('storage', loadLatestData);
     return () => window.removeEventListener('storage', loadLatestData);
   }, []);
 
-  /* ================= 4. PROGRESS & ASSIGNMENTS ================= */
+  // Voice Welcome (Depends on student state)
+  useEffect(() => {
+    if (student && isBlind) {
+      const welcomeMsg = `Welcome ${student.name}. Your levels are ${student.levels.maths} for Maths and ${student.levels.science} for Science.`;
+      speak(welcomeMsg);
+    }
+  }, [student?.name]);
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      // This fires whenever the Admin saves grading in the other tab
+      const name = localStorage.getItem("loggedInStudent");
+      const allStudents = JSON.parse(localStorage.getItem("students")) || [];
+      const updatedData = allStudents.find(s => s.name === name);
+
+      if (updatedData) {
+        setStudent(updatedData); // This forces the dashboard to refresh with Class 2
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
+  useEffect(() => {
+    if (student && isBlind) {
+      const welcomeMsg = `Welcome ${student.name}. Your Learning Path is ready. 
+      Your level for Mathematics is ${student.levels.maths}, and for Science is ${student.levels.science}. 
+      Keyboard shortcuts are active.`;
+      speak(welcomeMsg);
+    }
+  }, [student?.name]); 
+
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  /* ================= 3. PROGRESS LOGIC ================= */
   const handleAssignmentUpload = async (file, lessonId) => {
     if (!file) return;
     setIsVerifying(true);
     const formData = new FormData();
     formData.append("image", file); 
     formData.append("lessonId", lessonId);
+
     try {
       const res = await axios.post("http://127.0.0.1:5001/verify-assignment", formData);
       if (res.data.verified) {
@@ -194,17 +202,26 @@ export default function StudentDashboard() {
         localStorage.setItem("students", JSON.stringify(updated));
         setAssignmentStep("test");
         loadLatestData();
-        speak("Verified. You may start the test.");
+        speak("Verification successful. Progress is 50 percent.");
+      } else {
+        speak("Verification failed.");
       }
-    } catch (err) { speak("Verification offline."); } 
-    finally { setIsVerifying(false); }
+    } catch (err) {
+      console.error("Vision error", err);
+      speak("Verification service offline.");
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const handleCompleteLesson = (lessonId, subject, testScore = 100) => {
     const students = JSON.parse(localStorage.getItem("students")) || [];
+
     const updatedStudents = students.map((s) => {
       if (s.name === student.name) {
         const subKey = subject.toLowerCase();
+
+        // 1. Record completion for the subject-specific array
         if (subKey === "maths") {
           const completed = s.completedMathsLessons || [];
           if (!completed.includes(lessonId)) completed.push(lessonId);
@@ -214,19 +231,53 @@ export default function StudentDashboard() {
           if (!completed.includes(lessonId)) completed.push(lessonId);
           s.completedScienceLessons = completed;
         }
+
+        // 2. Update legacy global completion tracking
+        const allComp = s.completedLessons || [];
+        if (!allComp.includes(lessonId)) allComp.push(lessonId);
+        s.completedLessons = allComp;
+
+        // 3. Save the score for this specific topic
         s.scores = { ...s.scores, [lessonId]: testScore };
+
+        // 🛑 LEVEL PROTECTION:
+        // We do not modify s.levels here. 
+        // The student stays in their current class level regardless of the score.
       }
       return s;
     });
+
+    // 4. Persistence and UI Refresh
     localStorage.setItem("students", JSON.stringify(updatedStudents));
-    setAssignmentStep("watch");
-    loadLatestData();
+    setAssignmentStep("watch"); // Force reset to video mode for the next lesson
+    loadLatestData(); // Pull the new lesson counts into the dashboard state
+
+    speak(`Topic completed. Your score is ${testScore} percent. Great job staying in your current level!`);
   };
 
-  /* ================= 5. CHAT LOGIC ================= */
+  useEffect(() => {
+    // If the student has just passed a topic test
+    if (student?.lastResult === "TOPIC_PASS") {
+      const timer = setTimeout(() => {
+        const students = JSON.parse(localStorage.getItem("students")) || [];
+        const updated = students.map(s =>
+          s.name === student.name ? { ...s, lastResult: null } : s
+        );
+
+        localStorage.setItem("students", JSON.stringify(updated));
+        // This triggers a re-render to hide the message
+        loadLatestData();
+      }, 5000); // 5 seconds
+
+      return () => clearTimeout(timer);
+    }
+  }, [student?.lastResult]);
+  
+  /* ================= 4. VOICE RECOGNITION ================= */
   const startListening = () => {
+    if (isListening) return;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition || isListening) return;
+    if (!SpeechRecognition) return;
     recognitionRef.current = new SpeechRecognition();
     recognitionRef.current.lang = lang === "hi" ? "hi-IN" : "en-IN";
     recognitionRef.current.onstart = () => setIsListening(true);
@@ -247,20 +298,7 @@ export default function StudentDashboard() {
       });
       setMessages([...newMsgs, { role: "bot", content: res.data.reply }]);
       if (isBlind) speak(res.data.reply);
-    } catch (err) { console.error(err); }
-  };
-
-  /* ================= 6. UTILS ================= */
-  const formatTime = (seconds) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return `${h}h ${m}m ${s}s`;
-  };
-
-  const downloadNotes = (fileName) => {
-    if (!fileName) return speak("Notes not available.");
-    window.open(`http://localhost:5000/uploads/notes/${fileName}`, "_blank");
+    } catch (err) { console.error("Chat error", err); }
   };
 
   const handleLogout = () => {
@@ -268,10 +306,13 @@ export default function StudentDashboard() {
     navigate("/");
   };
 
+  /* ================= 5. KEYBOARD SHORTCUTS ================= */
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.altKey && e.key.toLowerCase() === 'q') handleLogout();
-      if (e.altKey && e.key.toLowerCase() === 'w' && showWellnessBtn) navigate("/student/wellness-check");
+      if (e.altKey && e.key.toLowerCase() === 'w') {
+        if (showWellnessBtn) navigate("/student/wellness-check");
+      }
       if (e.altKey && e.key.toLowerCase() === 'h') navigate("/student/hobby-hub");
       if (isBlind && e.code === "Space" && document.activeElement.tagName !== "INPUT") {
         e.preventDefault();
@@ -282,67 +323,92 @@ export default function StudentDashboard() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isBlind, lang, student, showWellnessBtn]);
 
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
-
+  /* ================= 5. UPDATED PROGRESS LOGIC ================= */
   if (!student) return null;
 
-  /* ================= 7. LOCKOUT SCREEN ================= */
-  if (isLocked) {
-    return (
-      <div style={styles.lockoutOverlay}>
-        <div style={styles.lockoutBox}>
-          <div style={{ fontSize: "60px" }}>😴</div>
-          <h2 style={{ fontSize: "28px", margin: "10px 0" }}>{t.sessionExpired}</h2>
-          <p style={{ color: "#64748b", lineHeight: "1.6" }}>{t.lockoutMsg}</p>
-          <div style={styles.timerDisplayLarge}>{formatTime(lockoutTimeLeft)}</div>
-          <button onClick={handleLogout} style={styles.lockoutLogout}>{t.logout}</button>
+  {/* 📘 POP-UP GUIDE */}
+      {showGuide && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.guideBox}>
+            <h2 style={{ color: '#6366f1' }}>Your Dashboard Guide!</h2>
+            <div style={styles.guideGrid}>
+              <div style={styles.guideItem}>📺 Videos are Muted for focus.</div>
+              <div style={styles.guideItem}>🎨 Hobby Hub is for fun.</div>
+              <div style={styles.guideItem}>⏳ Timer tracks study time.</div>
+              <div style={styles.guideItem}>✍️ Finish summaries to pass.</div>
+            </div>
+            <button onClick={() => setShowGuide(false)} style={styles.modalBtn}>Got it! 🚀</button>
+          </div>
         </div>
-      </div>
-    );
-  }
+      )}
+      {/* 🚪 LOGOUT MODAL */}
+  // ✅ SPECIAL ADHD RULE: 
+  // If ADHD and Class 1 Maths, only 2 subtopics needed.
+  // Otherwise, the standard is 5 (or 1 as per your previous code).
+  const getRequiredLessons = (subject) => {
+    const isADHD = student.disability?.toUpperCase() === "ADHD";
+    const isClass1 = student.levels?.[subject] === "Class 1";
 
-  const MATHS_REQUIRED = (student.disability === "ADHD" && student.levels?.maths === "Class 1") ? 2 : 5;
-  const SCIENCE_REQUIRED = 5;
+    if (isADHD && isClass1 && subject === "maths") {
+      return 2; // ADHD Class 1 Maths requirement
+    }
+    return 5; // Default requirement for everyone else
+  };
+
+  const MATHS_REQUIRED = getRequiredLessons("maths");
+  const SCIENCE_REQUIRED = getRequiredLessons("science");
+
+  // Independent status for Maths
+  const mathsDone = (student.completedMathsLessons?.length || 0) >= MATHS_REQUIRED;
+  const mathsLevel = student.levels?.maths || "Class 1";
+
+  // Independent status for Science
+  const scienceDone = (student.completedScienceLessons?.length || 0) >= SCIENCE_REQUIRED;
+  const scienceLevel = student.levels?.science || "Class 1";
+
+  /* ================= 6. DOWNLOAD LOGIC ================= */
+  const downloadNotes = (fileName) => {
+    if (!fileName) {
+      speak("No notes are available for this lesson.");
+      return alert("No notes available.");
+    }
+
+    // Update this URL to match your Flask server address
+    const fileUrl = `http://localhost:5000/uploads/notes/${fileName}`;
+
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    speak("Downloading lesson notes.");
+  };
 
   return (
     <div style={{ backgroundColor: colors.pastelBg, minHeight: "100vh", padding: "20px" }}>
-      <div style={{ maxWidth: "1450px", margin: "0 auto", fontFamily: "Lexend, sans-serif" }}>
+      <div style={{ maxWidth: "1400px", margin: "0 auto", fontFamily: "Inter, sans-serif" }}>
 
-        {/* 📘 POP-UP GUIDE */}
-        {showGuide && (
-          <div style={styles.modalOverlay}>
-            <div style={styles.guideBox}>
-              <h2 style={{ color: colors.primaryDeep, fontSize: '28px' }}>Hello {student.name}! 🚀</h2>
-              <p>Ready for a great learning session? Here's how to use your dashboard:</p>
-              <div style={styles.guideGrid}>
-                <div style={styles.guideItem}><b>📺 Lessons:</b> Watch and complete subtopics.</div>
-                <div style={styles.guideItem}><b>✍️ Uploads:</b> Share your notes to unlock tests.</div>
-                <div style={styles.guideItem}><b>⏳ Time:</b> 5h study limit followed by a break.</div>
-                <div style={styles.guideItem}><b>🤖 Buddy:</b> Ask the AI for help anytime.</div>
-              </div>
-              <button onClick={() => setShowGuide(false)} style={styles.modalBtn}>Let's Start!</button>
-            </div>
-          </div>
-        )}
-
-        {/* NAVIGATION BAR WITH CATEGORIES */}
+        {/* NAVIGATION BAR */}
         <nav style={styles.nav}>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <div style={{ fontSize: "28px", fontWeight: "900", color: colors.primaryDeep, marginRight: '10px' }}>EduLift</div>
+          <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+            <div style={{ fontSize: "26px", fontWeight: "900", color: colors.primaryDeep }}>EduLift</div>
+            <div style={styles.badge}>{student.placementDone ? t.modeLearning : t.modeAssessment}</div>
             <div style={{ ...styles.badge, background: '#e0f2fe', color: '#0369a1' }}>👤 {student.name}</div>
-            
-            {/* ADDED: CATEGORY LEVEL SPECIFIERS */}
-            <div style={{ ...styles.badge, background: '#dcfce7', color: '#166534', border: '1px solid #bbf7d0' }}>
-              📐 {t.maths}: <b>{student.levels?.maths}</b>
-            </div>
-            <div style={{ ...styles.badge, background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' }}>
-              🧪 {t.science}: <b>{student.levels?.science}</b>
-            </div>
 
-            <div style={{ ...styles.badge, background: studyTimeLeft < 1800 ? '#fee2e2' : '#f8fafc', color: studyTimeLeft < 1800 ? '#ef4444' : '#64748b' }}>
-              ⏳ {formatTime(studyTimeLeft)}
-            </div>
-          </div>
+            {student.placementDone && (
+              <>
+                {/* Mathematics Level Badge */}
+                <div style={{ ...styles.badge, background: '#dcfce7', color: '#166534' }}>
+                  📐 {t?.maths || "M"}: {student.levels?.maths}
+                </div>
+
+                {/* Science Level Badge */}
+                <div style={{ ...styles.badge, background: '#fef3c7', color: '#92400e' }}>
+                  🧪 {t?.science || "S"}: {student.levels?.science}
+                </div>
+              </>
+            )}          </div>
           <div style={{ display: "flex", gap: "15px" }}>
             <button onClick={() => setLang(lang === 'en' ? 'hi' : 'en')} style={styles.langBtn}>
               {lang === 'en' ? 'हिन्दी' : 'English'}
@@ -357,10 +423,44 @@ export default function StudentDashboard() {
           <div style={styles.dashboardGrid}>
               <main style={styles.card}>
                 <header style={styles.sectionHeader}>
-                  <h2 style={{ margin: 0 }}>📚 {t.modeLearning}</h2>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <div style={styles.statusPill}>M: {student.completedMathsLessons?.length || 0}/{MATHS_REQUIRED}</div>
-                    <div style={styles.statusPill}>S: {student.completedScienceLessons?.length || 0}/{SCIENCE_REQUIRED}</div>
+                  <h2 style={{ margin: 0 }}>{t.modeLearning}</h2>
+
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'flex-end' }}>
+
+                    {/* Independent Maths Alert */}
+                    {mathsDone && (
+                      <>
+                        {/* CASE 1: Student failed - Show Retry Alert */}
+                        {student.examResult?.maths === 'fail' ? (
+                          <div style={{ ...styles.waitingBadge, borderColor: '#ef4444', color: '#991b1b', background: '#fef2f2' }}>
+                            ❌ Exam Failed. Please review lessons and Retry ({mathsLevel})
+                          </div>
+                        ) : (
+                          /* CASE 2: Waiting for first attempt or grading */
+                          student.examStatus?.maths !== "graded" && (
+                            <div style={{ ...styles.waitingBadge, borderColor: '#16a34a', color: '#166534', background: '#f0fdf4' }}>
+                              📐 Maths Exam Ready ({mathsLevel})
+                            </div>
+                          )
+                        )}
+                      </>
+                    )}
+
+                    {/* NEW: Promotion Celebration Alert */}
+                    {student.examResult?.maths === 'pass' && (
+                      <div style={styles.topicPassAlert}>
+                        🎉 Promoted! You are now in {student.levels?.maths} for Maths!
+                      </div>
+                    )}
+
+                    {/* Progress Pills */}
+                    {/* Progress Pills */}
+                    <div style={styles.statusPill}>
+                      M: {student.completedMathsLessons?.length || 0}/{MATHS_REQUIRED}
+                    </div>
+                    <div style={styles.statusPill}>
+                      S: {student.completedScienceLessons?.length || 0}/{SCIENCE_REQUIRED}
+                    </div>
                   </div>
                 </header>
 
@@ -376,59 +476,88 @@ export default function StudentDashboard() {
                   onUpload={handleAssignmentUpload}
                   isVerifying={isVerifying}
                   speak={speak}
+                  // ✅ Correct way to pass it:
                   onDownloadNotes={downloadNotes}
                 />
               </main>
 
+            {/* RIGHT SIDEBAR */}
             <div style={styles.rightSidebar}>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                 <button onClick={() => navigate("/student/hobby-hub")} style={styles.hobbyHubBtn}>🎨 Hobby Hub</button>
-                 {showWellnessBtn && <button onClick={() => navigate("/student/wellness-check")} style={styles.wellnessBanner}>🌿 Wellness</button>}
-              </div>
+              {showWellnessBtn && (
+                <button onClick={() => navigate("/student/wellness-check")} style={styles.wellnessBanner}>
+                  <span style={{ fontSize: "24px" }}>🌿</span>
+                  <div style={{ textAlign: "left" }}>
+                    <div style={{ fontWeight: "bold" }}>{t.wellnessBtn}</div>
+                    <div style={{ fontSize: "12px", opacity: 0.9 }}>Check-in (Alt + W)</div>
+                  </div>
+                </button>
+              )}
+
+              <button onClick={() => navigate("/student/hobby-hub")} style={styles.hobbyHubBtn}>
+                <span style={{ fontSize: "24px" }}>🎨</span>
+                <div style={{ textAlign: "left" }}>
+                  <div style={{ fontWeight: "bold", color: "#065f46" }}>{t.hobbyBtn}</div>
+                  <div style={{ fontSize: "12px", color: "#047857" }}>Explore Skills (Alt + H)</div>
+                </div>
+              </button>
 
               <div style={styles.progressCard}>
                 <StudentProgress student={student} t={t} lang={lang} />
+                <p style={styles.helperText}>* Upload notes to reach 50%. Pass test for 100%.</p>
               </div>
 
-              {/* IMPROVED CHATBOT UI */}
+              {/* CHATBOT CONTAINER */}
               <aside style={styles.chatbotContainer}>
                 <div style={styles.chatHeader}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '20px' }}>🤖</span>
-                    <span>{t.doubtSolver}</span>
-                  </div>
-                  {isListening && <div style={styles.pulseContainer}><span style={styles.pulseDot}></span> Listening</div>}
+                  <span>🤖 {t.doubtSolver}</span>
+                  {isListening && <span style={styles.pulse}>● Listening</span>}
                 </div>
-                
+
                 <div style={styles.chatBody}>
-                  {messages.length === 0 && (
-                    <div style={styles.emptyChat}>
-                      <p>Hello! I'm your AI Study Buddy. Ask me anything about your lessons!</p>
-                    </div>
-                  )}
+                  {messages.length === 0 && <div style={styles.emptyChat}>Ask a question about the lesson!</div>}
+
                   {messages.map((msg, i) => (
-                    <div key={i} style={{ 
-                      display: 'flex', 
-                      flexDirection: 'column',
-                      alignItems: msg.role === "user" ? "flex-end" : "flex-start",
-                      marginBottom: "15px" 
-                    }}>
-                      <div style={{ 
-                        ...styles.bubble, 
-                        background: msg.role === "user" ? colors.userBubble : colors.botBubble,
-                        color: msg.role === "user" ? "white" : "#1e293b",
-                        borderRadius: msg.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px"
+                    <div key={i} style={{ textAlign: msg.role === "user" ? "right" : "left", marginBottom: "15px" }}>
+                      <div style={{
+                        ...styles.bubble,
+                        background: msg.role === "user" ? colors.primaryDeep : "#ffffff",
+                        color: msg.role === "user" ? "#fff" : "#334155",
+                        border: msg.role === "bot" ? "1px solid #e2e8f0" : "none"
                       }}>
-                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+
+                        {msg.role === "user" ? (
+                          msg.content
+                        ) : (
+                          /* FORMATTED BOT RESPONSE */
+                          <div style={{ fontSize: "14px", lineHeight: "1.6" }}>
+                            {msg.content.split(/(?=📌|📖|💡)/g).map((part, index) => {
+                              const isAnswer = part.includes("📌");
+                              const isExplanation = part.includes("📖");
+                              const isExample = part.includes("💡");
+
+                              return (
+                                <div key={index} style={{
+                                  marginBottom: "10px",
+                                  padding: "8px",
+                                  borderRadius: "8px",
+                                  background: isAnswer ? "#ecfdf5" : "transparent",
+                                  borderLeft: (isExplanation || isExample) ? `4px solid ${colors.primaryDeep}` : "none"
+                                }}>
+                                  <ReactMarkdown>
+                                    {part.replace(/-{3,}/g, "").trim()}
+                                  </ReactMarkdown>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                      <span style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px' }}>
-                        {msg.role === "user" ? "You" : "Buddy"}
-                      </span>
                     </div>
                   ))}
                   <div ref={messagesEndRef} />
                 </div>
 
+                {/* CHAT INPUT AREA */}
                 <div style={styles.chatInputRow}>
                   <input
                     style={styles.input}
@@ -449,45 +578,73 @@ export default function StudentDashboard() {
 }
 
 const styles = {
-  nav: { display: "flex", justifyContent: "space-between", background: "#fff", padding: "15px 30px", borderRadius: "25px", marginBottom: "25px", alignItems: "center", boxShadow: "0 4px 15px rgba(0,0,0,0.02)" },
-  badge: { padding: "8px 15px", borderRadius: "12px", fontSize: "13px", fontWeight: "600", marginLeft: "8px", display: 'flex', alignItems: 'center', gap: '5px' },
-  langBtn: { background: "#f8fafc", border: "1px solid #e2e8f0", padding: "10px 18px", borderRadius: "12px", cursor: "pointer", fontWeight: "600" },
-  logoutBtn: { background: "#fee2e2", color: "#dc2626", border: "none", padding: "10px 20px", borderRadius: "12px", fontWeight: "800", cursor: "pointer" },
-  dashboardGrid: { display: "grid", gridTemplateColumns: "1fr 480px", gap: "25px", height: "calc(100vh - 160px)" },
+  nav: { display: "flex", justifyContent: "space-between", background: "#fff", padding: "18px 35px", borderRadius: "24px", marginBottom: "25px", alignItems: "center", boxShadow: "0 4px 20px rgba(0,0,0,0.03)" },
+  badge: { background: "#f1f5f9", padding: "6px 14px", borderRadius: "12px", fontSize: "12px", fontWeight: "bold", color: "#475569", marginLeft: "10px" },
+  langBtn: { background: "#f8fafc", border: "1px solid #e2e8f0", padding: "8px 15px", borderRadius: "10px", cursor: "pointer", fontWeight: "600" },
+  logoutBtn: { background: "#fee2e2", color: "#dc2626", border: "none", padding: "8px 18px", borderRadius: "12px", fontWeight: "bold", cursor: "pointer" },
+  dashboardGrid: { display: "grid", gridTemplateColumns: "1fr 460px", gap: "25px", height: "820px" },
   card: { background: "#fff", borderRadius: "30px", padding: "30px", overflowY: "auto", boxShadow: "0 10px 30px rgba(0,0,0,0.02)" },
-  rightSidebar: { display: "flex", flexDirection: "column", gap: "20px" },
-  sectionHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '25px', borderBottom: '1px solid #f1f5f9', paddingBottom: '15px' },
-  statusPill: { background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '10px', fontSize: '12px', fontWeight: 'bold' },
-  progressCard: { background: "#fff", borderRadius: "24px", padding: "20px", boxShadow: "0 4px 15px rgba(0,0,0,0.02)" },
-  
-  // BUTTONS
-  hobbyHubBtn: { flex: 1, padding: '18px', background: '#ecfdf5', color: '#065f46', border: 'none', borderRadius: '20px', fontWeight: '900', cursor: 'pointer' },
-  wellnessBanner: { flex: 1, padding: '18px', background: '#fffbeb', color: '#92400e', border: 'none', borderRadius: '20px', fontWeight: '900', cursor: 'pointer' },
+  rightSidebar: { display: "flex", flexDirection: "column", gap: "20px", height: "100%" },
 
-  // CHATBOT
-  chatbotContainer: { flex: 1, background: "#fff", borderRadius: "30px", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 10px 40px rgba(0,0,0,0.04)" },
-  chatHeader: { background: "#065f46", color: "#fff", padding: "18px 25px", fontWeight: "bold", display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  chatBody: { flex: 1, overflowY: "auto", padding: "20px", background: '#f8fafc' },
-  emptyChat: { textAlign: 'center', color: '#94a3b8', padding: '40px 20px', fontSize: '14px' },
-  bubble: { padding: "12px 16px", maxWidth: "88%", fontSize: "14px", lineHeight: "1.5", boxShadow: "0 2px 5px rgba(0,0,0,0.02)" },
-  chatInputRow: { padding: "15px 20px", borderTop: "1px solid #f1f5f9", display: "flex", gap: "10px", background: '#fff' },
-  input: { flex: 1, padding: "12px 18px", borderRadius: "12px", border: "1px solid #e2e8f0", outline: 'none', fontSize: '14px' },
-  sendBtn: { background: "#065f46", color: "#fff", border: "none", width: "50px", borderRadius: "12px", cursor: "pointer", fontSize: '18px' },
-  
-  // MODALS
-  modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 5000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' },
-  guideBox: { backgroundColor: 'white', padding: '40px', borderRadius: '40px', maxWidth: '650px', width: '90%' },
-  guideGrid: { textAlign: 'left', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', margin: '25px 0' },
-  guideItem: { background: '#f8fafc', padding: '15px', borderRadius: '15px', fontSize: '14px', border: '1px solid #f1f5f9' },
-  modalBtn: { width: '100%', padding: '16px', background: '#065f46', color: 'white', border: 'none', borderRadius: '15px', fontWeight: 'bold', cursor: 'pointer' },
+  // Header & Status Elements
+  sectionHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '30px',
+    borderBottom: '1px solid #f1f5f9',
+    paddingBottom: '20px'
+  },
+  statusPill: {
+    background: '#e0f2fe',
+    color: '#0369a1',
+    padding: '6px 12px',
+    borderRadius: '20px',
+    fontSize: '13px',
+    fontWeight: 'bold'
+  },
+  topicPassAlert: {
+    background: "#f0fdf4",
+    color: "#16a34a",
+    padding: "8px 16px",
+    borderRadius: "12px",
+    fontSize: "13px",
+    fontWeight: "600",
+    border: "1px solid #bbf7d0",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    animation: "fadeIn 0.3s ease-out"
+  },
 
-  // LOCKOUT
-  lockoutOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 },
-  lockoutBox: { textAlign: 'center', background: 'white', padding: '50px', borderRadius: '40px', maxWidth: '450px' },
-  timerDisplayLarge: { fontSize: "48px", fontWeight: "900", color: "#ef4444", margin: "25px 0" },
-  lockoutLogout: { background: '#f1f5f9', border: 'none', padding: '12px 30px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' },
-  
-  // PULSE
-  pulseContainer: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', background: 'rgba(255,255,255,0.2)', padding: '4px 10px', borderRadius: '20px' },
-  pulseDot: { width: '8px', height: '8px', background: '#ff4b4b', borderRadius: '50%' }
+  // Widgets & Banners
+  progressCard: { background: "#fff", borderRadius: "24px", padding: "20px", boxShadow: "0 4px 15px rgba(0,0,0,0.03)" },
+  helperText: { fontSize: '11px', color: '#94a3b8', marginTop: '10px', textAlign: 'center' },
+  wellnessBanner: { display: "flex", alignItems: "center", gap: "15px", background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)", border: "none", padding: "18px", borderRadius: "24px", cursor: "pointer", width: "100%" },
+  hobbyHubBtn: { display: "flex", gap: "15px", alignItems: "center", background: "#f0fdf4", border: "2px solid #10b981", padding: "18px", borderRadius: "24px", cursor: "pointer", width: "100%" },
+
+  // Chatbot Styles
+  chatbotContainer: { flex: 1, background: "#fff", borderRadius: "30px", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 10px 30px rgba(0,0,0,0.02)" },
+  chatHeader: { background: "#065f46", color: "#fff", padding: "20px 25px", fontWeight: "bold", display: 'flex', justifyContent: 'space-between' },
+  chatBody: { flex: 1, overflowY: "auto", padding: "25px", background: '#fafafa' },
+  emptyChat: { textAlign: 'center', color: '#94a3b8', marginTop: '40%' },
+  bubble: { display: "inline-block", padding: "14px 18px", borderRadius: "20px", maxWidth: "85%", fontSize: "14px" },
+  chatInputRow: { padding: "20px", borderTop: "1px solid #f1f5f9", display: "flex", gap: "12px" },
+  input: { flex: 1, padding: "14px", borderRadius: "15px", border: "1px solid #e2e8f0" },
+  sendBtn: { background: "#065f46", color: "#fff", border: "none", width: "55px", borderRadius: "15px", cursor: "pointer" },
+  pulse: { fontSize: '11px', color: '#ef4444' },
+
+  waitingBadge: {
+    background: "#fef3c7",
+    color: "#92400e",
+    padding: "10px 20px",
+    borderRadius: "14px",
+    fontWeight: "bold",
+    fontSize: "13px",
+    border: "1px solid #fcd34d",
+    boxShadow: "0 4px 12px rgba(251, 191, 36, 0.1)",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px"
+  }
 };

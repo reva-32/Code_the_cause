@@ -5,13 +5,13 @@ import axios from "axios";
 /* COMPONENTS */
 import Lessons from "./Lessons";
 import StudentProgress from "./StudentProgress";
+import PlacementTest from "./PlacementTest"; // Added missing PlacementTest
 import { shouldShowMentalHealthCheck } from "../../utils/healthStorage";
 
 /* ⚠️ IMPORT GENERAL LESSONS */
 import * as LessonData from "../../data/lessons";
 
 /* ================= DEAF LESSONS (FIXED DATA KEYS) ================= */
-// Changed 'class' to 'classLevel' to match the filter logic in Lessons.jsx
 export const deafLessons = [
   { id: "deaf-good-habits", subject: "science", classLevel: "Class 1", chapter: "Life Skills", topic: "Health", title: "Good Habits (Sign Language)", videoId: "ivVZ1kcL28o", mute: true },
   { id: "deaf-animal-kingdom", subject: "science", classLevel: "Class 2", chapter: "Biology", topic: "Animals", title: "Animal Kingdom (Sign Language)", videoId: "jcQNB82wDo", mute: true },
@@ -61,15 +61,19 @@ export default function DeafDashboard() {
   const [lang, setLang] = useState("en");
   const [showWellnessBtn, setShowWellnessBtn] = useState(false);
   const [assignmentStep, setAssignmentStep] = useState("watch");
-  const [mode, setMode] = useState("study");
+  
+  // EYE CARE TIMER STATES (5h study / 3h break)
   const [timeLeft, setTimeLeft] = useState(5 * 60 * 60);
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockoutTimeLeft, setLockoutTimeLeft] = useState(0);
+
   const [showGuide, setShowGuide] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [greeting, setGreeting] = useState("Welcome");
 
   const t = translations[lang];
 
-  /* --- INITIALIZE DATA & SWAP LESSONS --- */
+  /* --- 1. SWAP LESSONS TO DEAF-SPECIFIC DATA --- */
   useEffect(() => {
     if (!LessonData.lessons) return;
     const originalLessons = [...LessonData.lessons];
@@ -81,8 +85,8 @@ export default function DeafDashboard() {
     };
   }, []);
 
-  /* --- AUTH & GREETING LOGIC --- */
-  useEffect(() => {
+  /* --- 2. AUTH & GREETING & SYNC --- */
+  const loadStudentData = () => {
     const name = localStorage.getItem("loggedInStudent");
     const students = JSON.parse(localStorage.getItem("students")) || [];
     const found = students.find((s) => s.name === name);
@@ -90,7 +94,12 @@ export default function DeafDashboard() {
     if (!found) {
       navigate("/");
     } else { 
-      setStudent(found); 
+      // Ensure levels exist
+      const processedStudent = {
+        ...found,
+        levels: found.levels || { maths: "Class 1", science: "Class 1" }
+      };
+      setStudent(processedStudent); 
       setShowWellnessBtn(shouldShowMentalHealthCheck(name));
 
       const hour = new Date().getHours();
@@ -98,25 +107,50 @@ export default function DeafDashboard() {
       else if (hour < 17) setGreeting("Good Afternoon");
       else setGreeting("Good Evening");
 
-      const hasRegisteredBefore = localStorage.getItem("permanent_guide_seen_" + name);
-      if (!hasRegisteredBefore) {
+      if (!localStorage.getItem("permanent_guide_seen_" + name)) {
         setShowGuide(true);
         localStorage.setItem("permanent_guide_seen_" + name, "true");
       }
-      setMessages([{ role: "bot", content: "Hello! I am your AI Study Buddy. How can I help you today? ✨" }]);
     }
+  };
+
+  useEffect(() => {
+    loadStudentData();
+    window.addEventListener('storage', loadStudentData);
+    setMessages([{ role: "bot", content: "Hello! I am your AI Study Buddy. How can I help you today? ✨" }]);
+    return () => window.removeEventListener('storage', loadStudentData);
   }, [navigate]);
 
-  /* --- TIMER SYSTEM --- */
+  /* --- 3. 5H STUDY / 3H BREAK TIMER --- */
   useEffect(() => {
     if (!student) return;
+    const studentName = student.name;
+    
     const interval = setInterval(() => {
-      setTimeLeft((prev) => (prev <= 1 ? 0 : prev - 1));
+      if (isLocked) {
+        setLockoutTimeLeft((prev) => {
+          if (prev <= 1) {
+            setIsLocked(false);
+            setTimeLeft(5 * 60 * 60);
+            return 0;
+          }
+          return prev - 1;
+        });
+      } else {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            setIsLocked(true);
+            setLockoutTimeLeft(3 * 60 * 60);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }
     }, 1000);
     return () => clearInterval(interval);
-  }, [student]);
+  }, [student, isLocked]);
 
-  /* --- ACTION HANDLERS --- */
+  /* --- 4. HANDLERS --- */
   const handleLogout = () => {
     localStorage.removeItem("loggedInStudent");
     navigate("/");
@@ -136,7 +170,7 @@ export default function DeafDashboard() {
       });
       setMessages((p) => [...p, { role: "bot", content: res.data.reply }]);
     } catch (err) {
-      setMessages((p) => [...p, { role: "bot", content: "AI Buddy is currently offline." }]);
+      setMessages((p) => [...p, { role: "bot", content: "AI Buddy is offline." }]);
     }
   };
 
@@ -146,124 +180,154 @@ export default function DeafDashboard() {
 
   if (!student) return null;
 
+  // 🛑 LOCKOUT SCREEN
+  if (isLocked) {
+    return (
+      <div style={styles.modalOverlay}>
+        <div style={styles.logoutBox}>
+          <h1 style={{fontSize: '50px'}}>😴</h1>
+          <h2>Rest Your Eyes</h2>
+          <p>You have studied for 5 hours! Take a 3-hour break.</p>
+          <div style={{fontSize: '30px', fontWeight: 'bold', color: '#ef4444'}}>
+            {Math.floor(lockoutTimeLeft / 3600)}h {Math.floor((lockoutTimeLeft % 3600) / 60)}m left
+          </div>
+          <button onClick={handleLogout} style={styles.modalBtn}>Logout</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={styles.container}>
-      {/* 📘 POP-UP GUIDE */}
-      {showGuide && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.guideBox}>
-            <h2 style={{ color: '#6366f1' }}>Your Dashboard Guide!</h2>
-            <div style={styles.guideGrid}>
-              <div style={styles.guideItem}>📺 Videos are Muted for focus.</div>
-              <div style={styles.guideItem}>🎨 Hobby Hub is for fun.</div>
-              <div style={styles.guideItem}>⏳ Timer tracks study time.</div>
-              <div style={styles.guideItem}>✍️ Finish summaries to pass.</div>
-            </div>
-            <button onClick={() => setShowGuide(false)} style={styles.modalBtn}>Got it! 🚀</button>
-          </div>
-        </div>
-      )}
-
-      {/* 🚪 LOGOUT MODAL */}
-      {showLogoutConfirm && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.logoutBox}>
-            <h3>{t.confirmLogout}</h3>
-            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
-              <button onClick={handleLogout} style={styles.dangerBtn}>{t.yes}</button>
-              <button onClick={() => setShowLogoutConfirm(false)} style={styles.cancelBtn}>{t.no}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* --- HEADER --- */}
-      <div style={styles.header}>
-        <div>
-          <h1 style={{ margin: 0 }}>🤟 {greeting}, {student.name}</h1>
-          <span style={{ fontSize: '0.85rem' }}>Maths: {student.levels?.maths} | Science: {student.levels?.science}</span>
-        </div>
-        <div style={styles.headerActions}>
-          <button onClick={() => setShowGuide(true)} style={styles.guideBtn}>📖 Guide</button>
-          <button onClick={() => setShowLogoutConfirm(true)} style={styles.logoutBtn}>{t.logout}</button>
-          <div style={styles.timerBadge}>
-            ⏳ {Math.floor(timeLeft / 3600)}h {Math.floor((timeLeft % 3600) / 60)}m
-          </div>
-        </div>
-      </div>
-
-      {/* --- CONTENT GRID --- */}
-      <div style={styles.grid}>
-        <div style={styles.leftCol}>
-          <div style={styles.card}>
-            <div style={styles.cardHeader}>
-              <h2 style={{ margin: 0 }}>📚 {t.learningPath}</h2>
-              <button onClick={() => setLang(lang === "en" ? "hi" : "en")} style={styles.langBtn}>
-                {lang === "en" ? "हिन्दी" : "English"}
-              </button>
-            </div>
-            <p style={styles.hint}>{t.videoHint}</p>
-            <Lessons 
-              key={`${student.name}-${lang}`}
-              student={student} 
-              t={t} 
-              lang={lang} 
-              primaryColor="#6366f1" 
-              assignmentStep={assignmentStep} 
-              setAssignmentStep={setAssignmentStep}
-              onUpload={(file, id) => alert(`Uploaded file for lesson ${id}`)}
-              onDownloadNotes={(url) => window.open(url)}
-            />
-          </div>
-        </div>
-
-        <div style={styles.rightCol}>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button onClick={() => navigate("/student/hobby-hub")} style={styles.hobbyBtn}>{t.hobbyBtn}</button>
-            {showWellnessBtn && <button onClick={() => navigate("/student/wellness-check")} style={styles.wellnessBtn}>{t.wellnessBtn}</button>}
-          </div>
-          <div style={styles.card}>
-            <h3>📊 Progress</h3>
-            <StudentProgress student={student} t={t} lang={lang} />
-          </div>
-          <div style={styles.chatCard}>
-            <h3>💬 {t.doubtSolver}</h3>
-            <div style={styles.chatWindow}>
-              {messages.map((m, i) => (
-                <div key={i} style={{ textAlign: m.role === "user" ? "right" : "left" }}>
-                  <div style={{ ...styles.bubble, backgroundColor: m.role === 'user' ? '#6366f1' : 'white', color: m.role === 'user' ? 'white' : '#1e293b' }}>
-                    {m.content}
-                  </div>
+      {/* 📝 PLACEMENT TEST TRIGGER */}
+      {!student.placementDone ? (
+        <PlacementTest student={student} setStudent={setStudent} />
+      ) : (
+        <>
+          {/* 📘 POP-UP GUIDE */}
+          {showGuide && (
+            <div style={styles.modalOverlay}>
+              <div style={styles.guideBox}>
+                <h2 style={{ color: '#6366f1' }}>Your Dashboard Guide!</h2>
+                <div style={styles.guideGrid}>
+                  <div style={styles.guideItem}>📺 Videos are Muted for focus.</div>
+                  <div style={styles.guideItem}>🎨 Hobby Hub is for fun.</div>
+                  <div style={styles.guideItem}>⏳ Timer tracks study time.</div>
+                  <div style={styles.guideItem}>✍️ Finish summaries to pass.</div>
                 </div>
-              ))}
-              <div ref={messagesEndRef} />
+                <button onClick={() => setShowGuide(false)} style={styles.modalBtn}>Got it! 🚀</button>
+              </div>
             </div>
-            <div style={styles.inputRow}>
-              <input style={styles.input} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendMessage()} placeholder={t.askDoubt} />
-              <button onClick={sendMessage} style={styles.sendBtn}>➤</button>
+          )}
+
+          {/* 🚪 LOGOUT MODAL */}
+          {showLogoutConfirm && (
+            <div style={styles.modalOverlay}>
+              <div style={styles.logoutBox}>
+                <h3>{t.confirmLogout}</h3>
+                <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+                  <button onClick={handleLogout} style={styles.dangerBtn}>{t.yes}</button>
+                  <button onClick={() => setShowLogoutConfirm(false)} style={styles.cancelBtn}>{t.no}</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* --- HEADER --- */}
+          <div style={styles.header}>
+            <div>
+              <h1 style={{ margin: 0 }}>🤟 {greeting}, {student.name}</h1>
+              {/* FIXED: Showing Current Levels */}
+              <div style={{display: 'flex', gap: '10px', marginTop: '5px'}}>
+                <span style={styles.levelBadge}>📐 Maths: {student.levels?.maths}</span>
+                <span style={styles.levelBadge}>🧪 Science: {student.levels?.science}</span>
+              </div>
+            </div>
+            <div style={styles.headerActions}>
+              <button onClick={() => setShowGuide(true)} style={styles.guideBtn}>📖 Guide</button>
+              <button onClick={() => setShowLogoutConfirm(true)} style={styles.logoutBtn}>{t.logout}</button>
+              <div style={styles.timerBadge}>
+                ⏳ {Math.floor(timeLeft / 3600)}h {Math.floor((timeLeft % 3600) / 60)}m
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+
+          {/* --- CONTENT GRID --- */}
+          <div style={styles.grid}>
+            <div style={styles.leftCol}>
+              <div style={styles.card}>
+                <div style={styles.cardHeader}>
+                  <h2 style={{ margin: 0 }}>📚 {t.learningPath}</h2>
+                  <button onClick={() => setLang(lang === "en" ? "hi" : "en")} style={styles.langBtn}>
+                    {lang === "en" ? "हिन्दी" : "English"}
+                  </button>
+                </div>
+                <p style={styles.hint}>{t.videoHint}</p>
+                {/* FIXED: Passing student levels specifically to Lessons */}
+                <Lessons 
+                  key={`${student.name}-${lang}`}
+                  student={student} 
+                  t={t} 
+                  lang={lang} 
+                  primaryColor="#6366f1" 
+                  assignmentStep={assignmentStep} 
+                  setAssignmentStep={setAssignmentStep}
+                  onUpload={(file, id) => alert(`Uploaded file for lesson ${id}`)}
+                  onDownloadNotes={(url) => window.open(url)}
+                />
+              </div>
+            </div>
+
+            <div style={styles.rightCol}>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button onClick={() => navigate("/student/hobby-hub")} style={styles.hobbyBtn}>{t.hobbyBtn}</button>
+                {showWellnessBtn && <button onClick={() => navigate("/student/wellness-check")} style={styles.wellnessBtn}>{t.wellnessBtn}</button>}
+              </div>
+              <div style={styles.card}>
+                <h3>📊 Progress Tracking</h3>
+                <StudentProgress student={student} t={t} lang={lang} />
+              </div>
+              <div style={styles.chatCard}>
+                <h3>💬 {t.doubtSolver}</h3>
+                <div style={styles.chatWindow}>
+                  {messages.map((m, i) => (
+                    <div key={i} style={{ textAlign: m.role === "user" ? "right" : "left" }}>
+                      <div style={{ ...styles.bubble, backgroundColor: m.role === 'user' ? '#6366f1' : 'white', color: m.role === 'user' ? 'white' : '#1e293b' }}>
+                        {m.content}
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={messagesEndRef} />
+                </div>
+                <div style={styles.inputRow}>
+                  <input style={styles.input} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendMessage()} placeholder={t.askDoubt} />
+                  <button onClick={sendMessage} style={styles.sendBtn}>➤</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-/* --- STYLES OBJECT --- */
+/* --- STYLES --- */
 const styles = {
   container: { padding: '20px', backgroundColor: '#f8fafc', minHeight: '100vh', fontFamily: 'Lexend, sans-serif' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', padding: '15px 25px', borderRadius: '20px', color: 'white', marginBottom: '20px', boxShadow: '0 8px 12px -3px rgba(99, 102, 241, 0.2)' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', padding: '15px 25px', borderRadius: '20px', color: 'white', marginBottom: '20px' },
   headerActions: { display: 'flex', alignItems: 'center', gap: '12px' },
+  levelBadge: { background: 'rgba(255,255,255,0.2)', padding: '4px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold' },
   grid: { display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '20px' },
   leftCol: { display: 'flex', flexDirection: 'column', gap: '20px' },
   rightCol: { display: 'flex', flexDirection: 'column', gap: '20px' },
-  card: { background: 'white', padding: '20px', borderRadius: '24px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' },
+  card: { background: 'white', padding: '25px', borderRadius: '24px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' },
   cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' },
   chatCard: { background: 'white', padding: '20px', borderRadius: '24px', flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: '400px' },
   chatWindow: { flexGrow: 1, overflowY: 'auto', borderRadius: '15px', padding: '15px', marginBottom: '15px', background: '#f8fafc', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '10px' },
-  bubble: { display: 'inline-block', padding: '12px 18px', borderRadius: '18px', fontSize: '14px', maxWidth: '85%', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' },
+  bubble: { display: 'inline-block', padding: '12px 18px', borderRadius: '18px', fontSize: '14px', maxWidth: '85%', whiteSpace: 'pre-wrap', lineHeight: '1.5', textAlign: 'left' },
   inputRow: { display: 'flex', gap: '8px' },
-  input: { flexGrow: 1, padding: '14px', borderRadius: '15px', border: '1px solid #e2e8f0', outline: 'none' },
+  input: { flexGrow: 1, padding: '14px', borderRadius: '15px', border: '1px solid #e2e8f0' },
   sendBtn: { width: '50px', background: '#6366f1', color: 'white', border: 'none', borderRadius: '15px', cursor: 'pointer' },
   timerBadge: { background: 'rgba(255,255,255,0.2)', padding: '8px 15px', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 'bold' },
   guideBtn: { background: '#FFD700', color: '#422006', padding: '10px 18px', border: 'none', borderRadius: '15px', cursor: 'pointer', fontWeight: '800' },
@@ -271,7 +335,7 @@ const styles = {
   langBtn: { padding: '6px 12px', borderRadius: '10px', border: '1px solid #e2e8f0', cursor: 'pointer', background: 'white', fontWeight: 'bold' },
   hobbyBtn: { flex: 1, height: '55px', borderRadius: '18px', border: 'none', backgroundColor: '#dcfce7', color: '#166534', fontWeight: '800', cursor: 'pointer' },
   wellnessBtn: { flex: 1, height: '55px', borderRadius: '18px', border: 'none', backgroundColor: '#fef3c7', color: '#92400e', fontWeight: '800', cursor: 'pointer' },
-  modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' },
   guideBox: { backgroundColor: 'white', padding: '40px', borderRadius: '35px', maxWidth: '600px', textAlign: 'center' },
   guideGrid: { textAlign: 'left', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '20px' },
   guideItem: { background: '#f0f9ff', padding: '15px', borderRadius: '15px', border: '1px solid #bae6fd', fontSize: '0.9rem' },

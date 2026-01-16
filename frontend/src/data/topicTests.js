@@ -13,6 +13,18 @@ export const TOPIC_TEST = [
     ],
   },
   {
+  topic: "Subtraction",
+  subject: "maths",
+  level: "Class1",
+  questions: [
+    { question: "8 - 3 = ?", options: ["5", "11", "6", "4"], answer: "5" },
+    { question: "10 - 4 = ?", options: ["14", "6", "5", "7"], answer: "6" },
+    { question: "5 - 5 = ?", options :["5", "1", "10", "0"], answer: "0" },
+    { question: "7 - 2 = ?", options: ["9", "5", "4", "6"], answer: "5" },
+    { question: "9 - 1 = ?", options: ["10", "7", "8", "9"], answer: "8" },
+  ]
+  },
+  {
     topic: "Good Habits",
     subject: "science",
     level: "Class1",
