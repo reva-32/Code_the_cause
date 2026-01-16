@@ -17,7 +17,7 @@ export const lessons = [
     chapter: "Arithmetic Basics",
     topic: "Subtraction",
     title: "Subtraction Basics",
-    videoId: "yIxG_W6sKAI",
+    videoId: "zuYjDy9VJTc",
     audio: "/audios/class1-subtraction.mp3",
   },
 
@@ -129,7 +129,7 @@ export const lessons = [
     chapter: "Trigonometry",
     topic: "Introduction",
     title: "Introduction to Trigonometry",
-    videoId: "m9vNIn7889M",
+    videoId: "M1z_M1SfvYM",
     audio: "/audios/class10-trig-intro.mp3",
   },
   {
@@ -139,7 +139,7 @@ export const lessons = [
     chapter: "Chemical Reactions",
     topic: "Chemical Reactions",
     title: "Types of Chemical Reactions",
-    videoId: "g-S_vshS2N0",
+    videoId: "wIVFqA7RJvY",
     audio: "/audios/class10-chemical-reactions.mp3",
   },
 ];

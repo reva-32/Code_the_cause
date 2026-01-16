@@ -8,30 +8,31 @@ import StudentProgress from "./StudentProgress";
 import { shouldShowMentalHealthCheck } from "../../utils/healthStorage";
 import PlacementTest from "./PlacementTest";
 
+/* ================= TRANSLATIONS ================= */
 const translations = {
-  en: {
-    welcome: "Hi",
-    doubtSolver: "AI Assistant",
-    wellnessBtn: "🌿 Wellness Check",
-    hobbyBtn: "🎨 Hobby Hub",
-    learningPath: "Learning Path",
-    askDoubt: "Ask me anything...",
-    focusMode: "Focus Mode",
-    timeRemaining: "Time Left",
-    guideBtn: "📖 Help Guide",
-    timeUp: "Time for a Brain Break! 🌙"
+  en: { 
+    welcome: "Good Day", 
+    doubtSolver: "AI Study Buddy", 
+    wellnessBtn: "🌿 Wellness Check", 
+    hobbyBtn: "🎨 Hobby Hub", 
+    learningPath: "My Learning Path", 
+    askDoubt: "Ask Buddy anything...", 
+    timeRemaining: "Time Left", 
+    logout: "Logout",
+    timeUp: "Time for a Break!",
+    guideBtn: "📖 Open Guide"
   },
-  hi: {
-    welcome: "नमस्ते",
-    doubtSolver: "एआई सहायक",
-    wellnessBtn: "🌿 स्वास्थ्य जांच",
-    hobbyBtn: "🎨 हॉबी हब",
-    learningPath: "सीखने का मार्ग",
-    askDoubt: "मुझसे कुछ भी पूछें...",
-    focusMode: "Focus Mode",
-    timeRemaining: "समय शेष",
-    guideBtn: "📖 सहायता गाइड",
-    timeUp: "दिमागी ब्रेक का समय! 🌙"
+  hi: { 
+    welcome: "नमस्ते", 
+    doubtSolver: "एआई सहायक", 
+    wellnessBtn: "🌿 स्वास्थ्य जांच", 
+    hobbyBtn: "🎨 हॉबी हब", 
+    learningPath: "सीखने का मार्ग", 
+    askDoubt: "मुझसे कुछ भी पूछें...", 
+    timeRemaining: "समय शेष", 
+    logout: "लॉग आउट",
+    timeUp: "आराम का समय!",
+    guideBtn: "📖 गाइड खोलें"
   }
 };
 
@@ -77,10 +78,10 @@ export default function ADHDDashboard() {
     const lockoutStart = localStorage.getItem(`lockout_${student?.name}`);
     if (!lockoutStart) return null;
 
-    const twoHoursInMs = 2 * 60 * 60 * 1000;
+    const threeeHoursInMs = 3 * 60 * 60 * 1000;
     const now = Date.now();
     const elapsed = now - parseInt(lockoutStart);
-    const remainingMs = twoHoursInMs - elapsed;
+    const remainingMs = threeHoursInMs - elapsed;
 
     const mins = Math.ceil(remainingMs / (1000 * 60));
     return mins > 0 ? mins : 0;

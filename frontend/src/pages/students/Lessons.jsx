@@ -4,16 +4,12 @@ import { useNavigate } from "react-router-dom";
 
 export default function Lessons({
   student,
-  onComplete,
-  setWatchProgress,
   primaryColor = "#065f46",
   t,
-  lang,
   assignmentStep,
   setAssignmentStep,
   onUpload,
   isVerifying,
-  speak,
   onDownloadNotes
 }) {
   const [subject, setSubject] = useState("maths");
@@ -28,10 +24,46 @@ export default function Lessons({
     setAllLessons([...staticLessons, ...personalized]);
   }, [student.name]);
 
+  // 2. Handle YouTube Speed Control (Intervention Logic)
+  useEffect(() => {
+    if (student.activeIntervention === "REDUCE_SPEED") {
+      // Load YouTube API Script
+      if (!window.YT) {
+        const tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+      }
+
+      // Function to apply speed to all players
+      const applySpeed = () => {
+        const iframes = document.querySelectorAll('iframe[title="lesson-video"]');
+        iframes.forEach((iframe) => {
+          new window.YT.Player(iframe, {
+            events: {
+              'onReady': (event) => {
+                event.target.setPlaybackRate(0.75); // Slow down to 0.75x
+              },
+              'onStateChange': (event) => {
+                // Keep it slow even if the user changes videos
+                event.target.setPlaybackRate(0.75);
+              }
+            }
+          });
+        });
+      };
+
+      if (window.YT && window.YT.Player) {
+        applySpeed();
+      } else {
+        window.onYouTubeIframeAPIReady = applySpeed;
+      }
+    }
+  }, [student.activeIntervention, subject, allLessons]);
+
   const isBlind = student.disability?.toLowerCase() === "blind" || student.disability?.toLowerCase() === "visually impaired";
 
-  // 2. Filter lessons based on Subject and Class Level
-  // 2. Filter lessons based on Subject and Class Level
+  // 3. Filter lessons based on Subject and Class Level
   const eligibleLessons = allLessons.filter((l) => {
     // Get the student's current level (e.g., "Class 1")
     const sLevelRaw = student.levels?.[subject] || "";
@@ -54,7 +86,7 @@ export default function Lessons({
     );
   });
 
-  // 3. Update Assignment Step (Watch -> Test)
+  // 4. Update Assignment Step (Watch -> Test)
   useEffect(() => {
     const subjectKey = subject.toLowerCase() === 'maths' ? 'completedMathsLessons' : 'completedScienceLessons';
     const completedIds = (student[subjectKey] || []).map(id => String(id));
@@ -85,13 +117,9 @@ export default function Lessons({
             const subjectKey = subject.toLowerCase() === 'maths' ? 'completedMathsLessons' : 'completedScienceLessons';
             const completedIds = (student[subjectKey] || []).map(id => String(id));
             const isSubjectFullyDone = eligibleLessons.length > 0 && eligibleLessons.every(l => completedIds.includes(String(l.id)));
-
-            const examStatus = student.examStatus?.[subject] || "none";
             const examResult = student.examResult?.[subject];
             const isFailed = examResult === 'fail';
 
-            // ✅ MODIFIED: Only show completion card if they HAVEN'T failed.
-            // If they failed, we skip this and show the lessons again.
             if (isSubjectFullyDone && !isFailed) {
               return (
                 <div style={styles.completionCard}>
@@ -99,46 +127,30 @@ export default function Lessons({
                   <h3 style={{ color: primaryColor, margin: "10px 0" }}>
                     {subject.toUpperCase()} - {student.levels?.[subject]} Complete!
                   </h3>
-                  {examStatus === "assigned" ? (
-                    <div style={styles.waitingBadgeSmall}>✅ Exam Assigned! Please complete it.</div>
-                  ) : examStatus === "submitted" || (examStatus === "graded" && examResult === 'pass') ? (
-                    <div style={styles.waitingBadgeSmall}>✨ Exam completed! Great job.</div>
-                  ) : (
-                    <div style={styles.waitingBadgeSmall}>⏳ Waiting for Guardian to assign your Final Exam.</div>
-                  )}
+                  <div style={styles.waitingBadgeSmall}>✨ Great job completing the course!</div>
                 </div>
               );
             }
 
-            // Show Lessons (Visible if not done OR if failed)
             return eligibleLessons.map((lesson, index) => {
               const lessonId = String(lesson.id);
               const isCompleted = completedIds.includes(lessonId);
-
-              // ✅ IMPROVED LOGIC: If they failed the exam, we treat all lessons as "active" 
-              // so they can re-watch anything. Otherwise, follow the sequence.
               const isCurrentActive = isFailed || (!isCompleted && (index === 0 || completedIds.includes(String(eligibleLessons[index - 1].id))));
               const isLocked = !isFailed && !isCompleted && !isCurrentActive;
-
-              const defaultFile = subject.toLowerCase() === "maths" ? "Maths_notes.pdf" : "Science_notes.pdf";
-              const fileToDownload = lesson.notesUrl || defaultFile;
+              
+              // Check for Speed Intervention
+              const isSlowingDown = student.activeIntervention === "REDUCE_SPEED" && student.interventionSubject === subject.toLowerCase();
 
               return (
                 <div key={lesson.id} style={{ opacity: isLocked ? 0.6 : 1 }}>
                   <div style={styles.card}>
                     <div style={styles.cardTop}>
                       <h4>{lesson.title}</h4>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        {isFailed && <span style={{ ...styles.badge, background: '#fee2e2', color: '#b91c1c' }}>RE-WATCH</span>}
-                        {!isLocked && (
-                          <button onClick={() => onDownloadNotes(fileToDownload)} style={styles.downloadBadge}>
-                            📄 {subject.toUpperCase()} NOTES
-                          </button>
-                        )}
-                      </div>
+                      {isSlowingDown && !isLocked && (
+                         <span style={styles.speedBadge}>🐢 Speed: 0.75x</span>
+                      )}
                     </div>
 
-                    {/* Lesson is visible if it's the current active one OR if the student failed and needs review */}
                     {(isCurrentActive || isCompleted) && (
                       <div style={styles.content}>
                         <div style={styles.media}>
@@ -148,7 +160,7 @@ export default function Lessons({
                             <div style={styles.videoBox}>
                               <iframe
                                 style={styles.iframe}
-                                src={`https://www.youtube.com/embed/${lesson.videoId}?rel=0`}
+                                src={`https://www.youtube.com/embed/${lesson.videoId}?rel=0&enablejsapi=1`}
                                 title="lesson-video"
                                 frameBorder="0"
                                 allowFullScreen
@@ -165,19 +177,16 @@ export default function Lessons({
                                 type="file"
                                 onChange={(e) => onUpload(e.target.files[0], lesson.id)}
                                 disabled={isVerifying}
-                                style={{ marginTop: "10px" }}
                               />
                               {isVerifying && <p style={styles.pulse}>🔍 AI is checking your notes...</p>}
                             </div>
                           ) : (
-                            <div style={styles.testArea}>
-                              <button
-                                onClick={() => navigate(`/student/test/${lesson.id}`, { state: { subject } })}
-                                style={{ ...styles.btn, background: primaryColor }}
-                              >
-                                START TOPIC TEST ✍️
-                              </button>
-                            </div>
+                            <button
+                              onClick={() => navigate(`/student/test/${lesson.id}`, { state: { subject } })}
+                              style={{ ...styles.btn, background: primaryColor }}
+                            >
+                              START TOPIC TEST ✍️
+                            </button>
                           )
                         )}
                       </div>
@@ -196,20 +205,19 @@ export default function Lessons({
 const styles = {
   outerContainer: { padding: "20px", background: "#fff", borderRadius: "20px" },
   headerRow: { display: "flex", justifyContent: "space-between", marginBottom: "25px", alignItems: "center" },
-  select: { padding: "8px 12px", borderRadius: "10px", border: "1px solid #e2e8f0", fontWeight: "bold", outline: "none" },
+  select: { padding: "8px 12px", borderRadius: "10px", border: "1px solid #e2e8f0", fontWeight: "bold" },
   lessonStack: { display: "flex", flexDirection: "column", gap: "20px" },
-  card: { padding: "25px", borderRadius: "18px", transition: "0.3s", background: "#fff", border: "1px solid #f1f5f9" },
+  card: { padding: "25px", borderRadius: "18px", background: "#fff", border: "1px solid #f1f5f9" },
   cardTop: { display: "flex", justifyContent: "space-between", marginBottom: "15px", alignItems: "center" },
-  badge: { background: "#fef3c7", color: "#92400e", padding: "4px 8px", borderRadius: "10px", fontSize: "10px", fontWeight: "bold" },
-  downloadBadge: { background: "#065f46", color: "#fff", padding: "6px 12px", borderRadius: "10px", fontSize: "11px", fontWeight: "bold", border: "none", cursor: "pointer" },
+  speedBadge: { background: "#e0f2fe", color: "#0369a1", padding: "4px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: "bold" },
   media: { marginBottom: "20px" },
   videoBox: { position: "relative", paddingTop: "56.25%", background: "#000", borderRadius: "12px", overflow: "hidden" },
   iframe: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%" },
   upload: { padding: "20px", background: "#f0fdf4", border: "2px dashed #065f46", borderRadius: "15px", textAlign: "center" },
-  btn: { width: "100%", color: "#fff", padding: "18px", border: "none", borderRadius: "12px", fontWeight: "bold", cursor: "pointer", fontSize: "16px" },
-  pulse: { color: "#0891b2", fontWeight: "bold", marginTop: "10px" },
+  btn: { width: "100%", color: "#fff", padding: "18px", border: "none", borderRadius: "12px", fontWeight: "bold", cursor: "pointer" },
+  pulse: { color: "#0891b2", fontWeight: "bold" },
   empty: { textAlign: "center", color: "#666", padding: "40px" },
   content: { display: "flex", flexDirection: "column", gap: "15px" },
-  completionCard: { textAlign: 'center', padding: '50px 20px', background: '#f8fafc', borderRadius: '30px', border: '2px dashed #cbd5e1' },
-  waitingBadgeSmall: { background: "#fef3c7", color: "#92400e", padding: "10px 20px", borderRadius: "14px", fontSize: "14px", fontWeight: "bold", marginTop: "15px" }
+  completionCard: { textAlign: 'center', padding: '50px 20px', background: '#f8fafc', borderRadius: '30px' },
+  waitingBadgeSmall: { background: "#fef3c7", color: "#92400e", padding: "10px 20px", borderRadius: "14px", marginTop: "15px" }
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
@@ -6,396 +6,278 @@ import axios from "axios";
 import Lessons from "./Lessons";
 import StudentProgress from "./StudentProgress";
 import { shouldShowMentalHealthCheck } from "../../utils/healthStorage";
-import PlacementTest from "./PlacementTest";
 
-// Videos specifically for Deaf students
+/* ⚠️ IMPORT GENERAL LESSONS */
+import * as LessonData from "../../data/lessons";
+
+/* ================= DEAF LESSONS (FIXED DATA KEYS) ================= */
+// Changed 'class' to 'classLevel' to match the filter logic in Lessons.jsx
 export const deafLessons = [
-  {
-    id: "deaf-good-habits",
-    subject: "science",
-    class: "Class 1",
-    chapter: "Life Skills",
-    topic: "Health",
-    title: "Good Habits (Sign Language)",
-    videoId: "ivVZ1kcL28o", 
-    mute: true
-  },
-  {
-    id: "deaf-animal-kingdom",
-    subject: "science",
-    class: "Class 2",
-    chapter: "Biology",
-    topic: "Animals",
-    title: "Animal Kingdom (Sign Language)",
-    videoId: "jcQNB82wDo",
-    mute: true
-  },
-  {
-    id: "deaf-numbers",
-    subject: "maths",
-    class: "Class 1",
-    chapter: "Arithmetic Basics",
-    topic: "Numbers",
-    title: "Numbers 1-100 (Sign Language)",
-    videoId: "ilpGSy6JdNA",
-    mute: true
-  },
-  {
-    id: "deaf-multiplication",
-    subject: "maths",
-    class: "Class 2",
-    chapter: "Arithmetic Basics",
-    topic: "Multiplication",
-    title: "Multiplication (Sign Language)",
-    videoId: "IIpy29sAoxA",
-    mute: true
-  },
+  { id: "deaf-good-habits", subject: "science", classLevel: "Class 1", chapter: "Life Skills", topic: "Health", title: "Good Habits (Sign Language)", videoId: "ivVZ1kcL28o", mute: true },
+  { id: "deaf-animal-kingdom", subject: "science", classLevel: "Class 2", chapter: "Biology", topic: "Animals", title: "Animal Kingdom (Sign Language)", videoId: "jcQNB82wDo", mute: true },
+  { id: "deaf-numbers", subject: "maths", classLevel: "Class 1", chapter: "Arithmetic Basics", topic: "Numbers", title: "Numbers 1-100 (Sign Language)", videoId: "ilpGSy6JdNA", mute: true },
+  { id: "deaf-multiplication", subject: "maths", classLevel: "Class 2", chapter: "Arithmetic Basics", topic: "Multiplication", title: "Multiplication (Sign Language)", videoId: "IIpy29sAoxA", mute: true }
 ];
 
 const translations = {
-  en: {
-    welcome: "Welcome",
-    learningPath: "Visual Learning Path",
-    doubtSolver: "Visual Assistant",
-    askDoubt: "Type your question...",
-    focusMode: "Visual Focus",
-    videoHint: "Videos are muted. Focus on Sign Language & Captions.",
-    guideBtn: "📖 Help Guide",
-    timeRemaining: "Study Time Left",
-    timeUp: "Eyes Need Rest! 🤟"
+  en: { 
+    welcome: "Good Day", 
+    doubtSolver: "AI Study Buddy", 
+    wellnessBtn: "🌿 Wellness Check", 
+    hobbyBtn: "🎨 Hobby Hub", 
+    learningPath: "My Learning Path", 
+    askDoubt: "Ask Buddy anything...", 
+    timeRemaining: "Time Left", 
+    videoHint: "Note: Videos are muted to help you focus on the Sign Language.", 
+    logout: "Logout",
+    confirmLogout: "Do you want to leave?",
+    yes: "Yes, Logout",
+    no: "No, Stay"
   },
-  hi: {
-    welcome: "स्वागत है",
-    learningPath: "दृश्य सीखने का मार्ग",
-    doubtSolver: "दृश्य सहायक",
-    askDoubt: "अपना प्रश्न लिखें...",
-    focusMode: "फोकस मोड",
-    videoHint: "वीडियो म्यूट हैं। सांकेतिक भाषा और कैप्शन पर ध्यान दें।",
-    guideBtn: "📖 सहायता गाइड",
-    timeRemaining: "पढ़ाई का समय",
-    timeUp: "आँखों को आराम चाहिए! 🤟"
+  hi: { 
+    welcome: "नमस्ते", 
+    doubtSolver: "एआई सहायक", 
+    wellnessBtn: "🌿 स्वास्थ्य जांच", 
+    hobbyBtn: "🎨 हॉबी हब", 
+    learningPath: "सीखने का मार्ग", 
+    askDoubt: "मुझसे कुछ भी पूछें...", 
+    timeRemaining: "समय शेष", 
+    videoHint: "नोट: संकेतों पर ध्यान केंद्रित करने के लिए वीडियो म्यूट हैं।", 
+    logout: "लॉग आउट",
+    confirmLogout: "क्या आप जाना चाहते हैं?",
+    yes: "हाँ, लॉग आउट",
+    no: "नहीं, रुको"
   }
 };
 
 export default function DeafDashboard() {
+  const navigate = useNavigate();
+  const messagesEndRef = useRef(null);
+
+  /* --- STATE MANAGEMENT --- */
   const [student, setStudent] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [lang, setLang] = useState("en");
-  const [focusMode, setFocusMode] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
+  const [showWellnessBtn, setShowWellnessBtn] = useState(false);
   const [assignmentStep, setAssignmentStep] = useState("watch");
+  const [mode, setMode] = useState("study");
+  const [timeLeft, setTimeLeft] = useState(5 * 60 * 60);
   const [showGuide, setShowGuide] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(18000); // 5 Hours default
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [greeting, setGreeting] = useState("Welcome");
 
-  const messagesEndRef = useRef(null);
-  const navigate = useNavigate();
   const t = translations[lang];
 
-  const colors = {
-    primary: "#0ea5e9", 
-    bg: "#f0f9ff",
-    card: "#ffffff",
-    text: "#0f172a",
-    accent: "#f59e0b",
-    success: "#22c55e",
-    logoutBg: "#fee2e2",
-    logoutText: "#dc2626"
-  };
-
-  /* ================= 1. HELPER FUNCTIONS ================= */
-  const formatTime = (seconds) => {
-    if (seconds <= 0) return "0h 00m 00s";
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return `${h}h ${m}m ${s < 10 ? '0' + s : s}s`;
-  };
-
-  const getRemainingLockTime = () => {
-    const lockoutStart = localStorage.getItem(`lockout_${student?.name}`);
-    if (!lockoutStart) return 0;
-    const remainingMs = (2 * 60 * 60 * 1000) - (Date.now() - parseInt(lockoutStart));
-    return Math.max(0, Math.ceil(remainingMs / (1000 * 60)));
-  };
-
-  /* ================= 2. TIMER & COOL-DOWN LOGIC ================= */
+  /* --- INITIALIZE DATA & SWAP LESSONS --- */
   useEffect(() => {
-    if (!student) return;
+    if (!LessonData.lessons) return;
+    const originalLessons = [...LessonData.lessons];
+    LessonData.lessons.length = 0;
+    LessonData.lessons.push(...deafLessons);
+    return () => {
+      LessonData.lessons.length = 0;
+      LessonData.lessons.push(...originalLessons);
+    };
+  }, []);
 
-    const fiveHoursInSec = 5 * 60 * 60;
-    const twoHoursInMs = 2 * 60 * 60 * 1000;
-    const lockoutStart = localStorage.getItem(`lockout_${student.name}`);
-
-    if (lockoutStart) {
-      const now = Date.now();
-      if (now - parseInt(lockoutStart) >= twoHoursInMs) {
-        localStorage.removeItem(`lockout_${student.name}`);
-        localStorage.setItem(`timer_${student.name}`, fiveHoursInSec.toString());
-        setTimeLeft(fiveHoursInSec);
-      } else {
-        setTimeLeft(0);
-      }
-    } else {
-      const savedTime = localStorage.getItem(`timer_${student.name}`);
-      setTimeLeft(savedTime ? parseInt(savedTime) : fiveHoursInSec);
-    }
-  }, [student]);
-
+  /* --- AUTH & GREETING LOGIC --- */
   useEffect(() => {
-    if (timeLeft <= 0 || !student) return;
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          localStorage.setItem(`lockout_${student.name}`, Date.now().toString());
-          clearInterval(timer);
-          return 0;
-        }
-        const newTime = prev - 1;
-        localStorage.setItem(`timer_${student.name}`, newTime.toString());
-        return newTime;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [timeLeft, student]);
-
-  /* ================= 3. DATA LOADING ================= */
-  const loadLatestData = () => {
     const name = localStorage.getItem("loggedInStudent");
     const students = JSON.parse(localStorage.getItem("students")) || [];
-    const loggedIn = students.find((s) => s.name === name);
-
-    if (loggedIn) {
-      setStudent({
-        ...loggedIn,
-        completedLessons: loggedIn.completedLessons || [],
-        verifiedSummaries: loggedIn.verifiedSummaries || [],
-        levels: loggedIn.levels || { maths: "Class 1", science: "Class 1" }
-      });
-      if (!localStorage.getItem(`guide_seen_deaf_${name}`)) setShowGuide(true);
-    } else {
+    const found = students.find((s) => s.name === name);
+    
+    if (!found) {
       navigate("/");
+    } else { 
+      setStudent(found); 
+      setShowWellnessBtn(shouldShowMentalHealthCheck(name));
+
+      const hour = new Date().getHours();
+      if (hour < 12) setGreeting("Good Morning");
+      else if (hour < 17) setGreeting("Good Afternoon");
+      else setGreeting("Good Evening");
+
+      const hasRegisteredBefore = localStorage.getItem("permanent_guide_seen_" + name);
+      if (!hasRegisteredBefore) {
+        setShowGuide(true);
+        localStorage.setItem("permanent_guide_seen_" + name, "true");
+      }
+      setMessages([{ role: "bot", content: "Hello! I am your AI Study Buddy. How can I help you today? ✨" }]);
     }
-  };
+  }, [navigate]);
 
-  useEffect(() => { loadLatestData(); }, []);
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  /* --- TIMER SYSTEM --- */
+  useEffect(() => {
+    if (!student) return;
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [student]);
 
-  /* ================= 4. CORE LOGIC ================= */
-  const handleAssignmentUpload = async (file, lessonId) => {
-    if (!file) return;
-    setIsVerifying(true);
-    const formData = new FormData();
-    formData.append("image", file);
-    formData.append("lessonId", lessonId);
-
-    try {
-      const res = await axios.post("http://127.0.0.1:5001/verify-assignment", formData);
-      if (res.data.verified) {
-        const students = JSON.parse(localStorage.getItem("students")) || [];
-        const updated = students.map(s => {
-          if (s.name === student.name) {
-            const summaries = s.verifiedSummaries || [];
-            if (!summaries.includes(lessonId)) summaries.push(lessonId);
-            return { ...s, verifiedSummaries: summaries };
-          }
-          return s;
-        });
-        localStorage.setItem("students", JSON.stringify(updated));
-        setAssignmentStep("test");
-        loadLatestData();
-      }
-    } catch (err) { console.error("Verification error", err); }
-    finally { setIsVerifying(false); }
-  };
-
-  const handleCompleteLesson = (lessonId) => {
-    const students = JSON.parse(localStorage.getItem("students")) || [];
-    const updated = students.map((s) => {
-      if (s.name === student.name) {
-        const completed = s.completedLessons || [];
-        if (!completed.includes(lessonId)) completed.push(lessonId);
-        return { ...s, completedLessons: completed };
-      }
-      return s;
-    });
-    localStorage.setItem("students", JSON.stringify(updated));
-    setAssignmentStep("watch");
-    loadLatestData();
+  /* --- ACTION HANDLERS --- */
+  const handleLogout = () => {
+    localStorage.removeItem("loggedInStudent");
+    navigate("/");
   };
 
   const sendMessage = async () => {
     if (!input.trim()) return;
-    const newMsgs = [...messages, { role: "user", content: input }];
-    setMessages(newMsgs);
+    const userMsg = { role: "user", content: input };
+    setMessages((p) => [...p, userMsg]);
+    const currentInput = input;
     setInput("");
+    
     try {
-      const res = await axios.post("http://127.0.0.1:5000/chat", { message: input, source: "deaf_dashboard" });
-      setMessages([...newMsgs, { role: "bot", content: res.data.reply }]);
-    } catch (err) { console.error("Chat error", err); }
+      const res = await axios.post("http://127.0.0.1:5000/chat", { 
+        message: currentInput, 
+        source: "student_dashboard" 
+      });
+      setMessages((p) => [...p, { role: "bot", content: res.data.reply }]);
+    } catch (err) {
+      setMessages((p) => [...p, { role: "bot", content: "AI Buddy is currently offline." }]);
+    }
   };
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   if (!student) return null;
 
-  /* ================= 5. STYLES ================= */
-  const styles = {
-    container: { backgroundColor: colors.bg, minHeight: "100vh", padding: "20px", fontFamily: "'Inter', sans-serif" },
-    header: {
-      background: `linear-gradient(135deg, ${colors.primary} 0%, #0284c7 100%)`,
-      color: "white", padding: "30px", borderRadius: "24px", marginBottom: "20px", textAlign: "center",
-      boxShadow: "0 10px 25px rgba(14, 165, 233, 0.2)", borderBottom: `6px solid ${colors.accent}`, position: 'relative'
-    },
-    timerBadge: { position: 'absolute', top: '15px', right: '20px', background: 'rgba(255,255,255,0.2)', padding: '8px 15px', borderRadius: '12px', fontSize: '14px', fontWeight: 'bold' },
-    topActions: { display: 'flex', justifyContent: 'space-between', marginBottom: '20px', gap: '10px' },
-    mainGrid: { display: focusMode ? "block" : "grid", gridTemplateColumns: "1.6fr 1fr", gap: "25px" },
-    card: { background: "#fff", borderRadius: "24px", padding: "25px", boxShadow: "0 4px 15px rgba(0,0,0,0.05)", border: "1px solid #e2e8f0" },
-    btn: { padding: "12px 20px", borderRadius: "14px", border: "none", cursor: "pointer", fontWeight: "bold", display: "flex", alignItems: "center", gap: "8px" },
-    chatBox: { height: "450px", display: "flex", flexDirection: "column", background: "#f8fafc", borderRadius: "18px", marginTop: "20px", overflow: "hidden", border: "2px solid #e2e8f0" },
-    muteBanner: { background: "#fee2e2", color: "#b91c1c", padding: "10px", borderRadius: "12px", marginBottom: "15px", textAlign: "center", fontSize: "0.9rem", fontWeight: "bold" },
-    overlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 3000, padding: '20px' },
-    guideContent: { background: '#fff', padding: '35px', borderRadius: '40px', maxWidth: '850px', maxHeight: '90vh', overflowY: 'auto' },
-    guideSection: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', marginBottom: '30px', borderBottom: '2px solid #f1f5f9', paddingBottom: '20px' },
-    langTitle: { fontSize: '22px', color: colors.primary, marginBottom: '8px', fontWeight: '800' }
-  };
-
   return (
     <div style={styles.container}>
-      {/* 5-HOUR LOCKOUT OVERLAY */}
-      {timeLeft <= 0 && (
-        <div style={styles.overlay}>
-          <div style={{...styles.guideContent, textAlign: 'center'}}>
-            <h1 style={{fontSize: '80px'}}>🤟😴</h1>
-            <h2 style={{fontSize: '32px', color: colors.text}}>{t.timeUp}</h2>
-            <p style={{fontSize: '20px'}}>Visual rest is important. Please rest your eyes for 2 hours.</p>
-            <div style={{background: '#f1f5f9', padding: '20px', borderRadius: '15px', margin: '20px 0'}}>
-               <h3 style={{color: colors.primary, margin: 0}}>Wait Time: {getRemainingLockTime()} minutes</h3>
-            </div>
-            <button onClick={() => navigate("/")} style={{...styles.btn, background: colors.primary, color: '#fff', margin: '0 auto', fontSize: '18px'}}>Logout</button>
-          </div>
-        </div>
-      )}
-
-      {/* BILINGUAL DEAF GUIDE POPUP */}
+      {/* 📘 POP-UP GUIDE */}
       {showGuide && (
-        <div style={styles.overlay}>
-          <div style={styles.guideContent}>
-            <h1 style={{textAlign: 'center', color: colors.primary, marginBottom: '30px'}}>🤟 Visual Guide / दृश्य मार्गदर्शिका</h1>
-            
-            <div style={styles.guideSection}>
-              <div>
-                <div style={styles.langTitle}>🤟 Sign Language Videos</div>
-                <p>All videos are <b>muted</b>. Focus on the instructor's sign language and captions.</p>
-              </div>
-              <div style={{borderLeft: '4px solid #0ea5e9', paddingLeft: '15px'}}>
-                <div style={styles.langTitle}>🤟 सांकेतिक भाषा वीडियो</div>
-                <p>सभी वीडियो <b>म्यूट</b> हैं। सांकेतिक भाषा और उपशीर्षक पर ध्यान दें।</p>
-              </div>
+        <div style={styles.modalOverlay}>
+          <div style={styles.guideBox}>
+            <h2 style={{ color: '#6366f1' }}>Your Dashboard Guide!</h2>
+            <div style={styles.guideGrid}>
+              <div style={styles.guideItem}>📺 Videos are Muted for focus.</div>
+              <div style={styles.guideItem}>🎨 Hobby Hub is for fun.</div>
+              <div style={styles.guideItem}>⏳ Timer tracks study time.</div>
+              <div style={styles.guideItem}>✍️ Finish summaries to pass.</div>
             </div>
-
-            <div style={styles.guideSection}>
-              <div>
-                <div style={styles.langTitle}>📝 Visual Summary</div>
-                <p>After watching, write notes on paper and upload a photo for verification.</p>
-              </div>
-              <div style={{borderLeft: '4px solid #0ea5e9', paddingLeft: '15px'}}>
-                <div style={styles.langTitle}>📝 दृश्य सारांश</div>
-                <p>देखने के बाद, कागज पर नोट्स लिखें और फोटो अपलोड करें।</p>
-              </div>
-            </div>
-
-            <div style={styles.guideSection}>
-              <div>
-                <div style={styles.langTitle}>⏳ Study Timer</div>
-                <p>You can study for 5 hours. After that, the app locks for 2 hours to rest your eyes.</p>
-              </div>
-              <div style={{borderLeft: '4px solid #0ea5e9', paddingLeft: '15px'}}>
-                <div style={styles.langTitle}>⏳ अध्ययन टाइमर</div>
-                <p>आप 5 घंटे पढ़ सकते हैं। उसके बाद, आँखों के आराम के लिए ऐप 2 घंटे के लिए लॉक हो जाता है।</p>
-              </div>
-            </div>
-
-            <button onClick={() => { setShowGuide(false); localStorage.setItem(`guide_seen_deaf_${student.name}`, "true"); }} 
-                    style={{...styles.btn, background: colors.success, color: '#fff', width: '100%', padding: '20px', fontSize: '20px', justifyContent: 'center'}}>
-              Start Learning! / सीखना शुरू करें! 🚀
-            </button>
+            <button onClick={() => setShowGuide(false)} style={styles.modalBtn}>Got it! 🚀</button>
           </div>
         </div>
       )}
 
-      <div style={styles.header}>
-        <div style={styles.timerBadge}>⏳ {t.timeRemaining}: {formatTime(timeLeft)}</div>
-        <h1 style={{ margin: 0 }}>🤟 {t.welcome}, {student.name}!</h1>
-        <p style={{ opacity: 0.9, fontSize: "1.1rem", marginTop: "10px" }}>Visual Learning Center</p>
-      </div>
-
-      <div style={styles.topActions}>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={() => setFocusMode(!focusMode)} style={{ ...styles.btn, background: focusMode ? "#ef4444" : colors.primary, color: "#fff" }}>
-            {focusMode ? "✕ Exit" : "🎯 Visual focus"}
-          </button>
-          <button onClick={() => setLang(lang === 'en' ? 'hi' : 'en')} style={{ ...styles.btn, background: "#fff", border: "2px solid #0ea5e9" }}>
-            {lang === 'en' ? 'हिन्दी' : 'English'}
-          </button>
-          <button onClick={() => setShowGuide(true)} style={{...styles.btn, background: colors.accent, color: '#fff'}}>
-            {t.guideBtn}
-          </button>
-        </div>
-        <button onClick={() => navigate("/")} style={{ ...styles.btn, background: colors.logoutBg, color: colors.logoutText }}>Logout</button>
-      </div>
-
-      <div style={styles.mainGrid}>
-        <div style={styles.card}>
-          <div style={styles.muteBanner}>🔇 {t.videoHint}</div>
-          <h2 style={{ marginTop: 0 }}>📚 {t.learningPath}</h2>
-          <Lessons
-            lessons={deafLessons}
-            student={student}
-            onComplete={handleCompleteLesson}
-            lang={lang} t={t}
-            primaryColor={colors.primary}
-            assignmentStep={assignmentStep}
-            setAssignmentStep={setAssignmentStep}
-            onUpload={handleAssignmentUpload}
-            isVerifying={isVerifying}
-            muteVideos={true}
-          />
-        </div>
-
-        {!focusMode && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={styles.card}>
-              <h3 style={{ marginTop: 0 }}>📈 Progress</h3>
-              <StudentProgress student={student} t={t} lang={lang} />
-            </div>
-
-            <div style={styles.card}>
-              <h3 style={{ marginTop: 0 }}>💬 {t.doubtSolver}</h3>
-              <div style={styles.chatBox}>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '15px' }}>
-                  {messages.map((msg, i) => (
-                    <div key={i} style={{ textAlign: msg.role === 'user' ? 'right' : 'left', marginBottom: '10px' }}>
-                      <div style={{ 
-                        display: 'inline-block', padding: '10px', borderRadius: '12px', 
-                        background: msg.role === 'user' ? colors.primary : '#e2e8f0', 
-                        color: msg.role === 'user' ? '#fff' : '#000', fontSize: '13px',
-                        maxWidth: '85%', whiteSpace: 'pre-wrap', lineHeight: '1.5'       
-                      }}>
-                        {msg.content}
-                      </div>
-                    </div>
-                  ))}
-                  <div ref={messagesEndRef} />
-                </div>
-                <div style={{ display: 'flex', padding: '15px', borderTop: '2px solid #f1f5f9' }}>
-                  <input style={{ flex: 1, border: 'none', outline: 'none' }} placeholder={t.askDoubt} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendMessage()} />
-                  <button onClick={sendMessage} style={{ background: colors.primary, color: '#fff', border: 'none', borderRadius: '8px', padding: '5px 15px' }}>➤</button>
-                </div>
-              </div>
+      {/* 🚪 LOGOUT MODAL */}
+      {showLogoutConfirm && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.logoutBox}>
+            <h3>{t.confirmLogout}</h3>
+            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+              <button onClick={handleLogout} style={styles.dangerBtn}>{t.yes}</button>
+              <button onClick={() => setShowLogoutConfirm(false)} style={styles.cancelBtn}>{t.no}</button>
             </div>
           </div>
-        )}
+        </div>
+      )}
+
+      {/* --- HEADER --- */}
+      <div style={styles.header}>
+        <div>
+          <h1 style={{ margin: 0 }}>🤟 {greeting}, {student.name}</h1>
+          <span style={{ fontSize: '0.85rem' }}>Maths: {student.levels?.maths} | Science: {student.levels?.science}</span>
+        </div>
+        <div style={styles.headerActions}>
+          <button onClick={() => setShowGuide(true)} style={styles.guideBtn}>📖 Guide</button>
+          <button onClick={() => setShowLogoutConfirm(true)} style={styles.logoutBtn}>{t.logout}</button>
+          <div style={styles.timerBadge}>
+            ⏳ {Math.floor(timeLeft / 3600)}h {Math.floor((timeLeft % 3600) / 60)}m
+          </div>
+        </div>
+      </div>
+
+      {/* --- CONTENT GRID --- */}
+      <div style={styles.grid}>
+        <div style={styles.leftCol}>
+          <div style={styles.card}>
+            <div style={styles.cardHeader}>
+              <h2 style={{ margin: 0 }}>📚 {t.learningPath}</h2>
+              <button onClick={() => setLang(lang === "en" ? "hi" : "en")} style={styles.langBtn}>
+                {lang === "en" ? "हिन्दी" : "English"}
+              </button>
+            </div>
+            <p style={styles.hint}>{t.videoHint}</p>
+            <Lessons 
+              key={`${student.name}-${lang}`}
+              student={student} 
+              t={t} 
+              lang={lang} 
+              primaryColor="#6366f1" 
+              assignmentStep={assignmentStep} 
+              setAssignmentStep={setAssignmentStep}
+              onUpload={(file, id) => alert(`Uploaded file for lesson ${id}`)}
+              onDownloadNotes={(url) => window.open(url)}
+            />
+          </div>
+        </div>
+
+        <div style={styles.rightCol}>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button onClick={() => navigate("/student/hobby-hub")} style={styles.hobbyBtn}>{t.hobbyBtn}</button>
+            {showWellnessBtn && <button onClick={() => navigate("/student/wellness-check")} style={styles.wellnessBtn}>{t.wellnessBtn}</button>}
+          </div>
+          <div style={styles.card}>
+            <h3>📊 Progress</h3>
+            <StudentProgress student={student} t={t} lang={lang} />
+          </div>
+          <div style={styles.chatCard}>
+            <h3>💬 {t.doubtSolver}</h3>
+            <div style={styles.chatWindow}>
+              {messages.map((m, i) => (
+                <div key={i} style={{ textAlign: m.role === "user" ? "right" : "left" }}>
+                  <div style={{ ...styles.bubble, backgroundColor: m.role === 'user' ? '#6366f1' : 'white', color: m.role === 'user' ? 'white' : '#1e293b' }}>
+                    {m.content}
+                  </div>
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+            <div style={styles.inputRow}>
+              <input style={styles.input} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendMessage()} placeholder={t.askDoubt} />
+              <button onClick={sendMessage} style={styles.sendBtn}>➤</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
+
+/* --- STYLES OBJECT --- */
+const styles = {
+  container: { padding: '20px', backgroundColor: '#f8fafc', minHeight: '100vh', fontFamily: 'Lexend, sans-serif' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', padding: '15px 25px', borderRadius: '20px', color: 'white', marginBottom: '20px', boxShadow: '0 8px 12px -3px rgba(99, 102, 241, 0.2)' },
+  headerActions: { display: 'flex', alignItems: 'center', gap: '12px' },
+  grid: { display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '20px' },
+  leftCol: { display: 'flex', flexDirection: 'column', gap: '20px' },
+  rightCol: { display: 'flex', flexDirection: 'column', gap: '20px' },
+  card: { background: 'white', padding: '20px', borderRadius: '24px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' },
+  cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' },
+  chatCard: { background: 'white', padding: '20px', borderRadius: '24px', flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: '400px' },
+  chatWindow: { flexGrow: 1, overflowY: 'auto', borderRadius: '15px', padding: '15px', marginBottom: '15px', background: '#f8fafc', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '10px' },
+  bubble: { display: 'inline-block', padding: '12px 18px', borderRadius: '18px', fontSize: '14px', maxWidth: '85%', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' },
+  inputRow: { display: 'flex', gap: '8px' },
+  input: { flexGrow: 1, padding: '14px', borderRadius: '15px', border: '1px solid #e2e8f0', outline: 'none' },
+  sendBtn: { width: '50px', background: '#6366f1', color: 'white', border: 'none', borderRadius: '15px', cursor: 'pointer' },
+  timerBadge: { background: 'rgba(255,255,255,0.2)', padding: '8px 15px', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 'bold' },
+  guideBtn: { background: '#FFD700', color: '#422006', padding: '10px 18px', border: 'none', borderRadius: '15px', cursor: 'pointer', fontWeight: '800' },
+  logoutBtn: { background: '#ff4b4b', color: 'white', padding: '10px 18px', border: 'none', borderRadius: '15px', cursor: 'pointer', fontWeight: '800' },
+  langBtn: { padding: '6px 12px', borderRadius: '10px', border: '1px solid #e2e8f0', cursor: 'pointer', background: 'white', fontWeight: 'bold' },
+  hobbyBtn: { flex: 1, height: '55px', borderRadius: '18px', border: 'none', backgroundColor: '#dcfce7', color: '#166534', fontWeight: '800', cursor: 'pointer' },
+  wellnessBtn: { flex: 1, height: '55px', borderRadius: '18px', border: 'none', backgroundColor: '#fef3c7', color: '#92400e', fontWeight: '800', cursor: 'pointer' },
+  modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  guideBox: { backgroundColor: 'white', padding: '40px', borderRadius: '35px', maxWidth: '600px', textAlign: 'center' },
+  guideGrid: { textAlign: 'left', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '20px' },
+  guideItem: { background: '#f0f9ff', padding: '15px', borderRadius: '15px', border: '1px solid #bae6fd', fontSize: '0.9rem' },
+  modalBtn: { marginTop: '30px', padding: '15px 40px', background: '#6366f1', color: 'white', border: 'none', borderRadius: '25px', fontWeight: '900', cursor: 'pointer' },
+  logoutBox: { backgroundColor: 'white', padding: '30px', borderRadius: '24px', textAlign: 'center', maxWidth: '400px' },
+  dangerBtn: { padding: '12px 20px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer' },
+  cancelBtn: { padding: '12px 20px', background: '#e2e8f0', color: '#475569', border: 'none', borderRadius: '12px', cursor: 'pointer' },
+  hint: { color: '#64748b', fontSize: '13px', marginBottom: '20px' }
+};

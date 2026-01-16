@@ -65,23 +65,20 @@ export default function App() {
 
   if (!student) return <Navigate to="/student/login" />;
 
-  /*if (!student.placementDone) {
-    return <StudentDashboard student={student} />;
-  }*/
-
-  const disability = student?.disability?.toLowerCase() || "";
+  // Normalize string for comparison
+  const disability = (student?.disability || "").toLowerCase().trim();
 
   if (disability.includes("adhd")) {
     return <ADHDDashboard student={student} />;
   }
 
-  if (disability.includes("deaf")) {
+  // FIXED: Check for both common variations
+  if (disability.includes("hearing") || disability.includes("deaf")) {
     return <DeafDashboard student={student} />;
   }
 
-  // Default dashboard for others
   return <StudentDashboard student={student} />;
-  };
+};
 
   return (
     <BrowserRouter>
