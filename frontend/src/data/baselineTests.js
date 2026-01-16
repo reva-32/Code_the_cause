@@ -79,5 +79,26 @@ export const BASELINE_TEST = [
     question: "What gas do plants release during photosynthesis?",
     options: ["Carbon Dioxide", "Oxygen", "Nitrogen", "Hydrogen"],
     answer: "Oxygen",
+  },
+  {
+    id: "m10",
+    subject: "maths",
+    level: "Class 10",
+    question: "In a right-angled triangle, if sin(θ) = 3/5, what is cos(θ)?",
+    options: ["4/5", "3/4", "5/3", "1/2"],
+    answer: "4/5",
+  },
+  {
+    id: "s10",
+    subject: "science",
+    level: "Class 10",
+    question: "Which of the following reactions is a combination reaction?",
+    options: [
+      "CaO + H₂O → Ca(OH)₂",
+      "Zn + CuSO₄ → ZnSO₄ + Cu",
+      "CaCO₃ → CaO + CO₂",
+      "AgNO₃ + NaCl → AgCl + NaNO₃"
+    ],
+    answer: "CaO + H₂O → Ca(OH)₂",
   }
 ];

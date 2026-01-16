@@ -31,12 +31,27 @@ export default function Lessons({
   const isBlind = student.disability?.toLowerCase() === "blind" || student.disability?.toLowerCase() === "visually impaired";
 
   // 2. Filter lessons based on Subject and Class Level
+  // 2. Filter lessons based on Subject and Class Level
   const eligibleLessons = allLessons.filter((l) => {
-    const sLevel = (student.levels?.[subject] || "").replace(/\s/g, "").toLowerCase();
-    const lLevel = (l.classLevel || l.class || "").toString().replace(/\s/g, "").toLowerCase();
+    // Get the student's current level (e.g., "Class 1")
+    const sLevelRaw = student.levels?.[subject] || "";
+    const sLevel = sLevelRaw.replace(/\s/g, "").toLowerCase();
+
+    // Look for the level in the lesson object (check both 'class' and 'classLevel')
+    const lLevelRaw = l.classLevel || l.class || "";
+    const lLevel = lLevelRaw.toString().replace(/\s/g, "").toLowerCase();
+
+    // Standardize both to "classX" format for a perfect match
     const normS = sLevel.includes("class") ? sLevel : `class${sLevel}`;
     const normL = lLevel.includes("class") ? lLevel : `class${lLevel}`;
-    return (l.subject.toLowerCase() === subject.toLowerCase() && normL === normS);
+
+    // Debugging: Uncomment the line below if you still see issues
+    // console.log(`Comparing Lesson: ${l.title} | Student: ${normS} | Lesson: ${normL}`);
+
+    return (
+      l.subject.toLowerCase() === subject.toLowerCase() &&
+      normL === normS
+    );
   });
 
   // 3. Update Assignment Step (Watch -> Test)

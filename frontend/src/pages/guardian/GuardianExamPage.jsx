@@ -140,6 +140,14 @@ export default function GuardianExamPage() {
         setStudents(updated); // Sync the state immediately
     };
 
+    // ✅ Helper: Check if student is ready for school enrollment (Class 10 in both)
+    const isReadyForSchool = (student) => {
+        if (!student?.levels) return false;
+        const normalize = (lvl) => (lvl || "").toString().toLowerCase().replace(/\s/g, "");
+        return normalize(student.levels.maths) === "class10" &&
+            normalize(student.levels.science) === "class10";
+    };
+
     return (
         <div style={styles.container}>
             <div style={styles.header}>
@@ -180,6 +188,26 @@ export default function GuardianExamPage() {
 
                     return (
                         <div key={s.name} style={styles.card}>
+                            {/* 🆕 SCHOOL ENROLLMENT ALERT */}
+                            {isReadyForSchool(s) && (
+                                <div style={styles.schoolAlert}>
+                                    <div style={styles.schoolIcon}>🏫</div>
+                                    <div>
+                                        <strong style={{ display: 'block', color: '#1e3a8a', fontSize: '14px' }}>
+                                            Ready for Board Exams!
+                                        </strong>
+                                        <span style={{ fontSize: '12px', color: '#334155', lineHeight: '1.2', display: 'block' }}>
+                                            Reached Class 10 in Maths & Science. Please enroll in partner school.
+                                        </span>
+                                        <button
+                                            style={styles.schoolBtn}
+                                            onClick={() => alert(`Redirecting ${s.name} to School Admission Portal...`)}
+                                        >
+                                            Enroll Now
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                             {/* Promotion Alerts: Checks the new object structure */}
                             {s.examResult?.maths === 'pass' && (
                                 <div style={styles.promotionAlert}>🎊 Maths Passed! Promoted to {s.levels?.maths}</div>
@@ -292,5 +320,38 @@ const styles = {
     sciBtn: { width: "100%", padding: "10px", background: "#0891b2", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", marginBottom: "8px", fontWeight: "600" },
     fileInput: { fontSize: "11px", width: "100%", marginBottom: "10px", color: "#64748b" },
     submitBtn: { width: "100%", padding: "10px", background: "#1e293b", color: "white", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" },
-    lockText: { fontSize: "12px", color: "#94a3b8", margin: 0, lineHeight: "1.4" }
+    lockText: { fontSize: "12px", color: "#94a3b8", margin: 0, lineHeight: "1.4" },
+    // 🆕 New Styles for School Alert
+    schoolAlert: {
+        background: "linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)",
+        border: "1px solid #60a5fa",
+        borderRadius: "12px",
+        padding: "15px",
+        display: "flex",
+        gap: "12px",
+        marginBottom: "20px",
+        alignItems: "flex-start"
+    },
+    schoolIcon: {
+        fontSize: "24px",
+        background: "#fff",
+        minWidth: "40px",
+        height: "40px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: "50%",
+        boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+    },
+    schoolBtn: {
+        marginTop: "8px",
+        background: "#1e40af",
+        color: "#fff",
+        border: "none",
+        padding: "6px 12px",
+        borderRadius: "6px",
+        fontWeight: "bold",
+        cursor: "pointer",
+        fontSize: "11px"
+    }
 };
