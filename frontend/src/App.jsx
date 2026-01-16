@@ -30,7 +30,7 @@ import GuardianExamPage from "./pages/guardian/GuardianExamPage";
 import GradingCenter from "./pages/admin/GradingCenter";
 import ADHDDashboard from "./pages/students/ADHDDashboard";
 import DeafDashboard from "./pages/students/DeafDashboard";
-
+import SchoolRegistrationPage from "./pages/guardian/SchoolRegistrationPage";
 
 // 1. IMPORT YOUR NEW REGISTRATION PAGE
 import GuardianAddStudent from "./pages/guardian/addStudent";
@@ -165,6 +165,7 @@ export default function App() {
             </ProtectedGuardian>
           }
         />
+        <Route path="/guardian/school-registration" element={<SchoolRegistrationPage />} />
 
         {/* STUDENT ROUTES */}
         <Route path="/student/login" element={<StudentLogin />} />
