@@ -16,7 +16,7 @@ export const lessons = [
     chapter: "Arithmetic Basics",
     topic: "Subtraction",
     title: "Subtraction Basics",
-    videoId: "yIxG_W6sKAI", // Example video ID
+    videoId: "ZygCUtAUWJA", 
     audio: "/audios/class1-subtraction.mp3",
   },
   {
