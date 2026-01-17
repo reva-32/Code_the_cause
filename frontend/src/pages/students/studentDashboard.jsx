@@ -172,7 +172,8 @@ export default function StudentDashboard() {
     if (student && isBlind) {
       const welcomeMsg = `Welcome ${student.name}. Your Learning Path is ready. 
       Your level for Mathematics is ${student.levels.maths}, and for Science is ${student.levels.science}. 
-      Keyboard shortcuts are active.`;
+      Keyboard shortcuts are active. Press Alt + q to logout, Alt + w for Wellness Check, and Alt + h for Hobby Hub.
+      Hold the Spacebar to ask questions using your voice.`;
       speak(welcomeMsg);
     }
   }, [student?.name]); 

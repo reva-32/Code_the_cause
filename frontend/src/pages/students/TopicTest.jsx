@@ -15,6 +15,7 @@ export default function TopicTest() {
   const [submitted, setSubmitted] = useState(false);
   const [score, setScore] = useState(0);
   const [subject, setSubject] = useState("");
+  const [currentTopicName, setCurrentTopicName] = useState("");
 
   const speak = (text) => {
     if (!window.speechSynthesis) return;
@@ -42,11 +43,22 @@ export default function TopicTest() {
     if (!s) return navigate("/");
 
     const sub = location.state?.subject || (lessonId.includes("maths") ? "maths" : "science");
-    const currentLevel = s.levels[sub].replace(/\s/g, "").toLowerCase();
-    
+    const rawLevel = s.levels[sub];
+    const currentLevel = rawLevel.replace(/\s/g, ""); // e.g., "Class1"
+
+    // --- CLASS 1 MATHS CONDITIONAL LOGIC ---
+    let targetTopicName = "";
+    if (sub === "maths" && currentLevel === "Class1") {
+      const additionStatus = localStorage.getItem(`${s.name}_addition_status`);
+      // If addition was already solved/seen, we force the Subtraction topic
+      targetTopicName = (additionStatus === "seen") ? "Subtraction" : "Addition";
+    }
+
+    // Find the test data based on subject, level, and the conditional topic name
     const test = TOPIC_TEST.find(t =>
       t.subject === sub &&
-      t.level.replace(/\s/g, "").toLowerCase() === currentLevel
+      t.level.replace(/\s/g, "") === currentLevel &&
+      (targetTopicName ? t.topic === targetTopicName : true) // Match forced topic if Class1 Maths
     );
 
     let finalQuestions = test?.questions || [];
@@ -63,9 +75,10 @@ export default function TopicTest() {
     setStudent(s);
     setSubject(sub);
     setQuestions(finalQuestions);
+    setCurrentTopicName(test?.topic || "");
 
     if (s.disability?.toLowerCase() === "blind" || s.disability?.toLowerCase() === "visually impaired") {
-      speak(`Hello ${s.name}. Let's start your ${sub} test. ${adminSimplified ? "I have made the questions easier for you." : ""} 
+      speak(`Hello ${s.name}. Let's start your ${sub} test on ${test?.topic}. ${adminSimplified ? "I have made the questions easier for you." : ""} 
       Pick 1, 2, 3, or 4. Press R to repeat.`);
     }
   }, [lessonId, navigate, location.state]);
@@ -96,8 +109,14 @@ export default function TopicTest() {
 
   const handleSubmit = () => {
     const result = evaluateTopicTest(questions, answers);
+    const isPass = result >= 35;
     setScore(result);
     setSubmitted(true);
+
+    // --- UPDATE LOCAL STORAGE FOR CLASS 1 MATHS LOGIC ---
+    if (currentTopicName === "Addition" && student.levels.maths.replace(/\s/g, "") === "Class1" && isPass) {
+      localStorage.setItem(`${student.name}_addition_status`, "seen");
+    }
 
     const students = JSON.parse(localStorage.getItem("students")) || [];
     const alerts = JSON.parse(localStorage.getItem("system_alerts")) || [];
@@ -108,7 +127,6 @@ export default function TopicTest() {
         const generalCompleted = s.completedLessons || [];
         const subjectCompleted = s[subjectKey] || [];
 
-        const isPass = result >= 35;
         if (isPass) {
           if (!generalCompleted.includes(lessonId)) generalCompleted.push(lessonId);
           if (!subjectCompleted.includes(lessonId)) subjectCompleted.push(lessonId);
@@ -174,7 +192,7 @@ export default function TopicTest() {
         <div style={{ background: "#fff", padding: isADHD ? "40px" : "30px", borderRadius: "24px", boxShadow: "0 10px 30px rgba(0,0,0,0.08)", border: isADHD ? "3px solid #065f46" : "1px solid #f1f5f9" }}>
           <div style={{ marginBottom: "30px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", color: "#64748b" }}>
-              <span>{subject.toUpperCase()} QUIZ</span>
+              <span>{subject.toUpperCase()} QUIZ - {currentTopicName}</span>
               <span>{currentQuestionIndex + 1} / {questions.length}</span>
             </div>
             <div style={{ height: "8px", background: "#f1f5f9", borderRadius: "10px", marginTop: "10px" }}>
@@ -207,6 +225,7 @@ export default function TopicTest() {
         <div style={{ textAlign: "center", padding: "50px", background: "#fff", borderRadius: "24px" }}>
           <div style={{ fontSize: "60px" }}>{score >= 35 ? "🎉" : "📚"}</div>
           <h1 style={{ fontSize: "40px" }}>{score}%</h1>
+          <p>{score >= 35 ? "Great job! Lesson complete." : "Keep practicing, you can do it!"}</p>
           <button onClick={() => navigate("/student/dashboard")} style={styles.finalBtn}>Back to Dashboard</button>
         </div>
       )}
@@ -216,8 +235,8 @@ export default function TopicTest() {
 
 const styles = {
   audioIconBtn: { background: "#f1f5f9", border: "none", borderRadius: "12px", padding: "10px", cursor: "pointer" },
-  optionBtn: (sel) => ({ padding: "18px", textAlign: "left", borderRadius: "15px", border: sel ? "2px solid #10b981" : "2px solid #f1f5f9", background: sel ? "#f0fdf4" : "#fff", cursor: "pointer", display: "flex", gap: "15px" }),
-  radioCircle: (sel) => ({ width: "20px", height: "20px", borderRadius: "50%", border: sel ? "6px solid #10b981" : "2px solid #cbd5e1" }),
-  submitBtn: (ready) => ({ padding: "16px 35px", background: ready ? "#065f46" : "#cbd5e1", color: "#fff", border: "none", borderRadius: "12px", fontWeight: "bold" }),
-  finalBtn: { padding: "15px 40px", background: "#065f46", color: "white", border: "none", borderRadius: "12px", fontWeight: "bold", marginTop: "20px" }
+  optionBtn: (sel) => ({ padding: "18px", textAlign: "left", borderRadius: "15px", border: sel ? "2px solid #10b981" : "2px solid #f1f5f9", background: sel ? "#f0fdf4" : "#fff", cursor: "pointer", display: "flex", gap: "15px", width: '100%', fontSize: '18px' }),
+  radioCircle: (sel) => ({ width: "20px", height: "20px", borderRadius: "50%", border: sel ? "6px solid #10b981" : "2px solid #cbd5e1", flexShrink: 0 }),
+  submitBtn: (ready) => ({ padding: "16px 35px", background: ready ? "#065f46" : "#cbd5e1", color: "#fff", border: "none", borderRadius: "12px", fontWeight: "bold", cursor: ready ? "pointer" : "not-allowed" }),
+  finalBtn: { padding: "15px 40px", background: "#065f46", color: "white", border: "none", borderRadius: "12px", fontWeight: "bold", marginTop: "20px", cursor: 'pointer' }
 };
